@@ -173,10 +173,14 @@ def multihead_one_task_accuracy(train_x, test_x, train_y, test_y, depth):
 
 def compute_mean_predictions_on_input(input_x, seq_of_train_x, seq_of_train_y,
                                       full_train_preds, depth, lamb_factor, self_kernel_inverses,
-                                      weight_covar, lamb, sigma, fix_weights=False):
+                                      weight_covar, lamb, sigma, fix_weights=False, use_naive_gp=False):
     """
     return a T x P_{input} x N0 array. Its i-th element is <f_i(X)>
     """
+    kernel_fn_to_use = cross_kernel_new
+    if use_naive_gp:
+        kernel_fn_to_use = cross_kernel
+
     device = seq_of_train_x[0].device
     num_tasks = len(seq_of_train_x)
     w_indices = 1 if fix_weights else num_tasks
@@ -185,7 +189,7 @@ def compute_mean_predictions_on_input(input_x, seq_of_train_x, seq_of_train_y,
     full_test_predictions = torch.zeros((num_tasks, w_indices, input_x.shape[0], 1), device=device)
 
     for j in range(w_indices):
-        full_test_predictions[0, j] = cross_kernel_new(input_x, seq_of_train_x[0], j, 0, weight_covar, depth,
+        full_test_predictions[0, j] = kernel_fn_to_use(input_x, seq_of_train_x[0], j, 0, weight_covar, depth,
                                                        lamb, sigma) @\
                                  self_kernel_inverses[0] @ seq_of_train_y[0]
 
@@ -196,7 +200,7 @@ def compute_mean_predictions_on_input(input_x, seq_of_train_x, seq_of_train_y,
             else:
                 pred_from_last = full_train_preds[i - 1, i, i]  # this is <f(a_{i-1},W_i,X_i)>
             full_test_predictions[i, j] =\
-                cross_kernel_new(input_x, seq_of_train_x[i], j, i, weight_covar, depth, lamb, sigma) @\
+                kernel_fn_to_use(input_x, seq_of_train_x[i], j, i, weight_covar, depth, lamb, sigma) @\
                                      self_kernel_inverses[i] @\
             (seq_of_train_y[i] - lamb_factor * pred_from_last) + \
                                      lamb_factor * full_test_predictions[i - 1, j]
