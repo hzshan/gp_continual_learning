@@ -3,7 +3,7 @@ import numpy as np
 import tqdm, math
 
 
-USE_ADAM = True
+USE_ADAM = False
 
 
 class MLP(torch.nn.Module):
@@ -48,32 +48,39 @@ def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=
     pre_train_parameters = [p.data.clone() for p in list(network.parameters())]
 
     loss = None
-    if USE_ADAM:
+    curr_best_loss = torch.ones(1).to(train_x.device) * 999
+    convergence_counter = 5
 
-        curr_best_loss = torch.ones(1).to(train_x.device) * 999
-        convergence_counter = 5
-        adam = torch.optim.Adam(network.parameters(), lr=eta)
-        for step in range(n_steps):
-            adam.zero_grad()
-            # print(idx)
-            loss = torch.mean((network(train_x[:]) - train_y[:]) ** 2)
+    if USE_ADAM:
+        optim = torch.optim.Adam(network.parameters(), lr=eta)
+    else:
+        optim = None
+
+    curr_best_loss = torch.ones(1).to(train_x.device) * 999
+    convergence_counter = 5
+    for step in range(n_steps):
+        network.zero_grad()
+        loss = torch.mean((network(train_x[:]) - train_y[:]) ** 2)
+
+        if USE_ADAM:
             for p, init_p in zip(list(network.parameters()), pre_train_parameters):
                 loss += l2 * torch.sum((p - init_p)**2)
             loss.backward()
-            adam.step()
-            # for p, init_p in zip(list(network.parameters()), pre_train_parameters):
-            #     p.data -= eta * (p.grad.data + l2 * (p.data - init_p))
-            #     if torch.any(torch.isnan(p.data)):
-            #         raise RuntimeError('training diverged')
-            if torch.isnan(loss.data):
-                raise RuntimeError('training diverged')
-            else:
-                if loss.data < curr_best_loss:
-                    curr_best_loss = loss.data.clone()
+            optim.step()
+        else:
+            loss.backward()
+            for p, init_p in zip(list(network.parameters()), pre_train_parameters):
+                p.data -= eta * (p.grad.data + l2 * (p.data - init_p))
 
-            if loss.data < 0.001:
-                print('\n ***** training loss less than 0.001. Breaking.')
-                break
+        if torch.isnan(loss.data):
+            raise RuntimeError('training diverged')
+        else:
+            if loss.data < curr_best_loss:
+                curr_best_loss = loss.data.clone()
+
+        if loss.data < 0.001:
+            print('\n ***** training loss less than 0.001. Breaking.')
+            break
 
             # if loss.data > curr_best_loss:
             #     convergence_counter -= 1
@@ -81,24 +88,9 @@ def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=
             #         print(f'\n ***** training converged. best training loss {curr_best_loss:.3f}')
             #         break
 
-            if step % update_freq == 0:
-                print(f'training loss:{torch.mean((network(train_x) - train_y) ** 2):.3f}')
+        if step % update_freq == 0:
+            print(f'training loss:{torch.mean((network(train_x) - train_y) ** 2):.3f}')
 
-    else:
-
-        for step in range(n_steps):
-            network.zero_grad()
-            # print(idx)
-            loss = torch.mean((network(train_x[:]) - train_y[:]) ** 2)
-            loss.backward()
-            for p, init_p in zip(list(network.parameters()), pre_train_parameters):
-                p.data -= eta * (p.grad.data + l2 * (p.data - init_p))
-
-            if torch.any(torch.isnan(loss.data)):
-                raise RuntimeError('training diverged')
-
-            if step % update_freq == 0:
-                print(f'training loss:{torch.mean((network(train_x) - train_y) ** 2):.3f}')
 
     sum_of_p_changes = torch.sum(torch.tensor([torch.sum(p - init_p)**2 for p, init_p in
                                                zip(network.parameters(), pre_train_parameters)]))

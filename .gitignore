@@ -5,3 +5,4 @@ FashionMNIST/
 MNIST/
 figures/
 cifar-10-batches-py/
+.idea/
