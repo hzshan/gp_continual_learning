@@ -324,7 +324,8 @@ def compute_W_var(var1, lamb, n_tasks, fix_w=False):
         return Wcovars
 
 
-def cross_kernel(x1, x2, t1, t2, Wcovar_mat, depth):
+def cross_kernel(x1, x2, t1, t2, Wcovar_mat, depth, lamb, sigma):
+    # lamb and sigma are dummy variables
     """
     Simple wrapper of the deep arccos kernel function.
     :param x1:
