@@ -217,18 +217,22 @@ def compute_mean_predictions_on_input(input_x, seq_of_train_x, seq_of_train_y,
 
 
 def compute_mean_predictions(seq_of_train_x, seq_of_train_y, w_var, P_test, depth,
-                             lambda_val, seq_of_test_x, fix_weights=False):
+                             lambda_val, seq_of_test_x, fix_weights=False, use_naive_gp=False):
     """
     returns a TxTxPxN0 array where the i,jth element is <f_j(X_i)>, and a TxTxP_{test}xN0 array where the i,jth element
     is <f_j(i-th test set)>.
     """
+
+    kernel_fn_to_use = cross_kernel_new
+    if use_naive_gp:
+        kernel_fn_to_use = cross_kernel
     device = seq_of_train_x[0].device
     num_tasks = len(seq_of_train_x)
     # lamb_factor = lambda_val / (lambda_val + w_var**-1)
     lamb_factor = 1
     weight_covar = compute_W_var(w_var, lambda_val, num_tasks, fix_w=fix_weights)
     all_self_kernels =\
-        [cross_kernel_new(seq_of_train_x[_i], seq_of_train_x[_i], _i, _i, weight_covar, depth=depth,
+        [kernel_fn_to_use(seq_of_train_x[_i], seq_of_train_x[_i], _i, _i, weight_covar, depth=depth,
                           lamb=lambda_val, sigma=np.sqrt(w_var))
          for _i in range(num_tasks)]
     all_self_kernel_inverses = [inverse(_M) for _M in all_self_kernels]
@@ -245,7 +249,7 @@ def compute_mean_predictions(seq_of_train_x, seq_of_train_y, w_var, P_test, dept
     for input_ind in range(num_tasks):
         for weight_ind in range(num_weights):
             full_train_predictions[0, input_ind, weight_ind] = \
-                cross_kernel_new(seq_of_train_x[input_ind], seq_of_train_x[0],
+                kernel_fn_to_use(seq_of_train_x[input_ind], seq_of_train_x[0],
                                  weight_ind, 0, weight_covar, depth, lambda_val, np.sqrt(w_var)) @\
                 all_self_kernel_inverses[0] @ seq_of_train_y[0]
 
@@ -260,7 +264,7 @@ def compute_mean_predictions(seq_of_train_x, seq_of_train_y, w_var, P_test, dept
                     pred_from_last = full_train_predictions[i - 1, i, i]  # this is <f(a_{i-1},X_j,W_j>)
 
                 full_train_predictions[i, j, k] =\
-                    cross_kernel_new(seq_of_train_x[j], seq_of_train_x[i], k, i, weight_covar, depth,
+                    kernel_fn_to_use(seq_of_train_x[j], seq_of_train_x[i], k, i, weight_covar, depth,
                                  lambda_val, np.sqrt(w_var)) @\
                     all_self_kernel_inverses[i] @ \
                     (seq_of_train_y[i] - lamb_factor * pred_from_last) +\
@@ -295,7 +299,8 @@ def compute_mean_predictions(seq_of_train_x, seq_of_train_y, w_var, P_test, dept
                                                   fix_weights=fix_weights,
                                                   depth=depth,
                                                   lamb=lambda_val,
-                                                  sigma=np.sqrt(w_var))
+                                                  sigma=np.sqrt(w_var),
+                                                  use_naive_gp=use_naive_gp)
     return train_predictions, test_predictions
 
 
