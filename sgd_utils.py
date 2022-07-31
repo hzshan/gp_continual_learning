@@ -107,7 +107,8 @@ def test(network, test_x, test_y):
         test_y = test_y.float().to(network.Ls[0].weight.device)
         test_loss = torch.mean((network_y - test_y)**2)
         test_acc = torch.mean((torch.argmax(network_y, dim=1) == torch.argmax(test_y, dim=1)).float())
-    return test_loss, test_acc
+    # save the test predictions from head #0
+    return test_loss, test_acc, network_y
 
 
 def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_digit, seq_of_test_y_digit,
@@ -117,6 +118,7 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_dig
     test_loss_matrix = np.zeros((num_tasks, num_tasks))
     train_acc_matrix = np.zeros((num_tasks, num_tasks))
     test_acc_matrix = np.zeros((num_tasks, num_tasks))
+    test_predictions = []
 
     for i in tqdm.trange(num_tasks, position=0, leave=True):
         # for the first task, set the l2 regularizer to 0
@@ -125,17 +127,21 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_dig
               seq_of_train_y_digit[i].long(), eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
               update_freq=update_freq, langevin_noise=langevin_noise)
         for j in range(num_tasks):
-            test_loss, test_acc = test(network, seq_of_test_x[j], seq_of_test_y_digit[j].long())
-            train_loss, train_acc = test(network, seq_of_train_x[j], seq_of_train_y_digit[j].long())
+            test_loss, test_acc, test_preds = test(network, seq_of_test_x[j], seq_of_test_y_digit[j].long())
+            train_loss, train_acc, train_preds = test(network, seq_of_train_x[j], seq_of_train_y_digit[j].long())
             train_loss_matrix[j, i] = train_loss
             test_loss_matrix[j, i] = test_loss
             train_acc_matrix[j, i] = train_acc
             test_acc_matrix[j, i] = test_acc
 
+            # save the test predictions on the first task's test set from output head #0 for comparison vs theory
+            if j == 0:
+                test_predictions.append(test_preds[:, 0])
+
             if i == 0 and j == 0:
                 if train_loss > 2e-3:
-                    raise RuntimeError('Training did not appear to converge for the first task.')
+                    print('!!!!!! Training did not appear to converge for the first task.')
             # if j == i:
             #     print(f'train loss{train_loss:.3f}, test loss{test_loss:.3f}')
 
-    return train_loss_matrix, test_loss_matrix, train_acc_matrix, test_acc_matrix
+    return train_loss_matrix, test_loss_matrix, train_acc_matrix, test_acc_matrix, test_predictions
