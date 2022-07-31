@@ -91,10 +91,8 @@ def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=
         if step % update_freq == 0:
             print(f'training loss:{torch.mean((network(train_x) - train_y) ** 2):.3f}')
 
-
     sum_of_p_changes = torch.sum(torch.tensor([torch.sum(p - init_p)**2 for p, init_p in
                                                zip(network.parameters(), pre_train_parameters)]))
-    print(f'\n ================================================='
           f'\n Training finished for one task. Final training loss {float(loss.data):.3f} ')
     for p ,init_p in zip(network.parameters(), pre_train_parameters):
         print(p.shape, f'mean weight change:{float(torch.mean((p - init_p)**2)):.3f}')
@@ -120,6 +118,7 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_dig
 
     for i in tqdm.trange(num_tasks, position=0, leave=True):
         # for the first task, set the l2 regularizer to 0
+        print(f'\n ================= Start task {i+1} / {num_tasks} ==================')
         train(network, seq_of_train_x[i],
               seq_of_train_y_digit[i].long(), eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
               update_freq=update_freq)
