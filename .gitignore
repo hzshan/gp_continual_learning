@@ -1,0 +1,7 @@
+__pycache__/
+cluster_results/
+dump/
+FashionMNIST/
+MNIST/
+figures/
+cifar-10-batches-py/
