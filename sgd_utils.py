@@ -41,10 +41,9 @@ class MLP(torch.nn.Module):
 
 
 def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=1000, langevin_noise=0):
-    train_x = train_x.to(network.Ls[0].weight.device)
-    train_y = train_y.float().to(network.Ls[0].weight.device)
 
     # store pre-training parameters
+
     pre_train_parameters = [p.data.clone() for p in list(network.parameters())]
 
     loss = None
