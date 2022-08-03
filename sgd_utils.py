@@ -71,7 +71,7 @@ def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=
             for p, init_p in zip(list(network.parameters()), pre_train_parameters):
                 p.data -= eta * (p.grad.data + l2 * (p.data - init_p))
                 if langevin_noise > 0:
-                    p.data -= eta * langevin_noise * torch.normal(torch.zeros_like(p.data))
+                    p.data -= langevin_noise * torch.normal(torch.zeros_like(p.data))
 
         if torch.isnan(loss.data):
             raise RuntimeError('training diverged')
