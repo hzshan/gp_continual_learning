@@ -79,7 +79,7 @@ def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=
             if loss.data < curr_best_loss:
                 curr_best_loss = loss.data.clone()
 
-        if loss.data < 0.001:
+        if loss.data < 0.0001:
             print('\n ***** training loss less than 0.001. Breaking.')
             break
 
