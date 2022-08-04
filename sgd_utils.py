@@ -6,7 +6,7 @@ import tqdm, math
 Utility functions for running gradient-based learning (Langevin, SGD)
 """
 
-CONVERGENCE_COUNTER = 5
+CONVERGENCE_COUNTER = 50
 TRAIN_MSE_THRESHOLD = 1e-4
 
 
