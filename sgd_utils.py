@@ -65,6 +65,7 @@ def langevin_step(model: MLP, train_x, train_y, lr, temp, l2):
 def train(network, train_x, train_y, test_x,
           n_steps=5000, eta=0.001, l2=1, update_freq=1000, temp=0, num_samples=0):
 
+    network.anchor()
     mse = None
     sampled_outputs = torch.zeros((num_samples, test_x.shape[0]))
     conv_counter = CONVERGENCE_COUNTER
