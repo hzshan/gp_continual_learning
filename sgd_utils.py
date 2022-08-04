@@ -40,7 +40,7 @@ class MLP(torch.nn.Module):
         return self.readout(x) / math.sqrt(self.N)
 
 
-def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=1000, langevin_noise=0):
+def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=1000, temp=0):
 
     # store pre-training parameters
 
@@ -70,8 +70,8 @@ def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=
             loss.backward()
             for p, init_p in zip(list(network.parameters()), pre_train_parameters):
                 p.data -= eta * (p.grad.data + l2 * (p.data - init_p))
-                if langevin_noise > 0:
-                    p.data -= langevin_noise * torch.normal(torch.zeros_like(p.data))
+                if temp > 0:
+                    p.data -= eta * math.sqrt(temp) * torch.normal(torch.zeros_like(p.data))
 
         if torch.isnan(loss.data):
             raise RuntimeError('training diverged')
@@ -90,7 +90,7 @@ def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=
             #         break
 
         if step % update_freq == 0:
-            print(f'training loss:{torch.mean((network(train_x) - train_y) ** 2):.3f}')
+            print(f'{step} steps || training loss:{torch.mean((network(train_x) - train_y) ** 2):.3f}')
 
     sum_of_p_changes = torch.sum(torch.tensor([torch.sum(p - init_p)**2 for p, init_p in
                                                zip(network.parameters(), pre_train_parameters)]))
@@ -111,7 +111,7 @@ def test(network, test_x, test_y):
 
 
 def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_digit, seq_of_test_y_digit,
-                      learning_rate, num_steps, l2, update_freq=1000, langevin_noise=0):
+                      learning_rate, num_steps, l2, update_freq=1000, temp=0):
     num_tasks = len(seq_of_train_x)
     train_loss_matrix = np.zeros((num_tasks, num_tasks))
     test_loss_matrix = np.zeros((num_tasks, num_tasks))
@@ -124,7 +124,7 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_dig
         print(f'\n =================================================')
         train(network, seq_of_train_x[i],
               seq_of_train_y_digit[i].long(), eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
-              update_freq=update_freq, langevin_noise=langevin_noise)
+              update_freq=update_freq, temp=temp)
         for j in range(num_tasks):
             test_loss, test_acc, test_preds = test(network, seq_of_test_x[j], seq_of_test_y_digit[j].long())
             train_loss, train_acc, train_preds = test(network, seq_of_train_x[j], seq_of_train_y_digit[j].long())
