@@ -7,6 +7,7 @@ Utility functions for running gradient-based learning (Langevin, SGD)
 """
 
 CONVERGENCE_COUNTER = 5
+TRAIN_MSE_THRESHOLD = 1e-4
 
 
 class MLP(torch.nn.Module):
@@ -77,7 +78,7 @@ def train(network, train_x, train_y, test_x,
         if mse.data < curr_best_loss:
             curr_best_loss = mse.clone()
 
-        if mse < 0.005:
+        if mse < TRAIN_MSE_THRESHOLD:
             print('\n ***** training MSE less than 0.005. Starting to sample.')
             break
 
@@ -140,7 +141,7 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_dig
             test_acc_matrix[j, i] = test_acc
 
             if i == 0 and j == 0:
-                if train_loss > 5e-3:
+                if train_loss > TRAIN_MSE_THRESHOLD:
                     print('!!!!!! Training did not appear to converge for the first task.')
             # if j == i:
             #     print(f'train loss{train_loss:.3f}, test loss{test_loss:.3f}')
