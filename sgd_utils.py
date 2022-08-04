@@ -6,7 +6,6 @@ import tqdm, math
 Utility functions for running gradient-based learning (Langevin, SGD)
 """
 
-CONVERGENCE_COUNTER = 50
 TRAIN_MSE_THRESHOLD = 1e-4
 
 
@@ -64,12 +63,12 @@ def langevin_step(model: MLP, train_x, train_y, lr, temp, l2):
 
 
 def train(network, train_x, train_y, test_x,
-          n_steps=5000, eta=0.001, l2=1, update_freq=1000, temp=0, num_samples=0):
+          n_steps=5000, eta=0.001, l2=1, update_freq=1000, temp=0, num_samples=0,
+          convergence_threshold=-1):
 
     network.anchor()
     mse = None
     sampled_outputs = torch.zeros((num_samples, test_x.shape[0]))
-    conv_counter = CONVERGENCE_COUNTER
 
     curr_best_loss = torch.ones(1).to(train_x.device) * 999
     for step in range(n_steps):
@@ -82,11 +81,12 @@ def train(network, train_x, train_y, test_x,
             print('\n ***** training MSE less than 0.005. Starting to sample.')
             break
 
-        if mse.data > curr_best_loss:
-            conv_counter -= 1
-            if conv_counter < 0:
-                print(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
-                break
+        if convergence_threshold > 0:
+            if mse.data > curr_best_loss:
+                convergence_threshold -= 1
+                if convergence_threshold < 0:
+                    print(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
+                    break
 
         if step % update_freq == 0:
             print(f'{step} steps || tr MSE:{torch.mean((network(train_x) - train_y) ** 2):.4f}')
@@ -114,7 +114,7 @@ def test(network, test_x, test_y):
 
 
 def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_digit, seq_of_test_y_digit,
-                      learning_rate, num_steps, l2, update_freq=1000, temp=0):
+                      learning_rate, num_steps, l2, update_freq=1000, temp=0, convergence_threshold=-1):
     num_tasks = len(seq_of_train_x)
     train_loss_matrix = np.zeros((num_tasks, num_tasks))
     test_loss_matrix = np.zeros((num_tasks, num_tasks))
@@ -130,7 +130,8 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_dig
                                         seq_of_train_y_digit[i].long(),
                                         test_x=seq_of_test_x[0],
                                         eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
-                                        update_freq=update_freq, temp=temp, num_samples=10))
+                                        update_freq=update_freq, temp=temp, num_samples=10,
+                                        convergence_threshold=convergence_threshold))
 
         for j in range(num_tasks):
             test_loss, test_acc = test(network, seq_of_test_x[j], seq_of_test_y_digit[j].long())
