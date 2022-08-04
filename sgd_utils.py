@@ -93,7 +93,7 @@ def train(network, train_x, train_y, test_x,
 
     print(f'\n Training finished for one task. Final training loss {float(mse):.3f}. Starting to sample.')
     for sample_ind in range(num_samples):
-        for step_ind in range(50):
+        for step_ind in range(1000):
             _ = langevin_step(model=network, train_x=train_x, train_y=train_y, lr=eta, temp=temp, l2=l2)
 
         with torch.no_grad():
