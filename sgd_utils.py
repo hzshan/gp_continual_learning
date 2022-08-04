@@ -78,7 +78,7 @@ def train(network, train_x, train_y, test_x,
             curr_best_loss = mse.clone()
 
         if mse < TRAIN_MSE_THRESHOLD:
-            print('\n ***** training MSE less than 0.005. Starting to sample.')
+            print(f'\n ***** training MSE less than {TRAIN_MSE_THRESHOLD}. Starting to sample.')
             break
 
         if convergence_threshold > 0:
