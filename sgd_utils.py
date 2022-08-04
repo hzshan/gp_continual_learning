@@ -2,8 +2,11 @@ import torch
 import numpy as np
 import tqdm, math
 
+"""
+Utility functions for running gradient-based learning (Langevin, SGD)
+"""
 
-USE_ADAM = False
+CONVERGENCE_COUNTER = 5
 
 
 class MLP(torch.nn.Module):
@@ -25,6 +28,8 @@ class MLP(torch.nn.Module):
         for p in list(self.parameters()):
             p.data = torch.normal(torch.zeros_like(p.data), std=sigma)
 
+        self.anchor_parameters = None
+
     def forward(self, x):
 
         for i in range(self.depth):
@@ -39,65 +44,61 @@ class MLP(torch.nn.Module):
 
         return self.readout(x) / math.sqrt(self.N)
 
+    def anchor(self):
+        self.anchor_parameters = [p.data.clone() for p in list(self.parameters())]
 
-def train(network, train_x, train_y, n_steps=5000, eta=0.001, l2=1, update_freq=1000, temp=0):
 
-    # store pre-training parameters
+def langevin_step(model: MLP, train_x, train_y, lr, temp, l2):
+    model.zero_grad()
+    mse = torch.mean((model(train_x[:]) - train_y[:]) ** 2)
 
-    pre_train_parameters = [p.data.clone() for p in list(network.parameters())]
+    if torch.isnan(mse.data):
+        raise RuntimeError('training diverged')
+    mse.backward()
+    for p, anchor_p in zip(list(model.parameters()), model.anchor_parameters):
+        p.data -= lr * (p.grad.data + l2 * (p.data - anchor_p))
+        if temp > 0:
+            p.data -= lr * math.sqrt(temp) * torch.normal(torch.zeros_like(p.data))
+    return mse.data
 
-    loss = None
+
+def train(network, train_x, train_y, test_x,
+          n_steps=5000, eta=0.001, l2=1, update_freq=1000, temp=0, num_samples=0):
+
+    mse = None
+    sampled_outputs = torch.zeros((num_samples, test_x.shape[0]))
+    conv_counter = CONVERGENCE_COUNTER
+
     curr_best_loss = torch.ones(1).to(train_x.device) * 999
-    convergence_counter = 5
-
-    if USE_ADAM:
-        optim = torch.optim.Adam(network.parameters(), lr=eta)
-    else:
-        optim = None
-
-    curr_best_loss = torch.ones(1).to(train_x.device) * 999
-    convergence_counter = 5
     for step in range(n_steps):
-        network.zero_grad()
-        loss = torch.mean((network(train_x[:]) - train_y[:]) ** 2)
+        mse = langevin_step(model=network, train_x=train_x, train_y=train_y, lr=eta, temp=temp, l2=l2)
 
-        if USE_ADAM:
-            for p, init_p in zip(list(network.parameters()), pre_train_parameters):
-                loss += l2 * torch.sum((p - init_p)**2)
-            loss.backward()
-            optim.step()
-        else:
-            loss.backward()
-            for p, init_p in zip(list(network.parameters()), pre_train_parameters):
-                p.data -= eta * (p.grad.data + l2 * (p.data - init_p))
-                if temp > 0:
-                    p.data -= eta * math.sqrt(temp) * torch.normal(torch.zeros_like(p.data))
+        if mse.data < curr_best_loss:
+            curr_best_loss = mse.clone()
 
-        if torch.isnan(loss.data):
-            raise RuntimeError('training diverged')
-        else:
-            if loss.data < curr_best_loss:
-                curr_best_loss = loss.data.clone()
-
-        if loss.data < 0.0001:
-            print('\n ***** training loss less than 0.0001. Breaking.')
+        if mse < 0.005:
+            print('\n ***** training MSE less than 0.005. Starting to sample.')
             break
 
-            # if loss.data > curr_best_loss:
-            #     convergence_counter -= 1
-            #     if convergence_counter < 0:
-            #         print(f'\n ***** training converged. best training loss {curr_best_loss:.3f}')
-            #         break
+        if mse.data > curr_best_loss:
+            conv_counter -= 1
+            if conv_counter < 0:
+                print(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
+                break
 
         if step % update_freq == 0:
-            print(f'{step} steps || training loss:{torch.mean((network(train_x) - train_y) ** 2):.3f}')
+            print(f'{step} steps || tr MSE:{torch.mean((network(train_x) - train_y) ** 2):.4f}')
 
-    sum_of_p_changes = torch.sum(torch.tensor([torch.sum(p - init_p)**2 for p, init_p in
-                                               zip(network.parameters(), pre_train_parameters)]))
-    print(f'\n Training finished for one task. Final training loss {float(loss.data):.3f} ')
-    for p ,init_p in zip(network.parameters(), pre_train_parameters):
-        print(p.shape, f'mean weight change:{float(torch.mean((p - init_p)**2)):.3f}')
+    print(f'\n Training finished for one task. Final training loss {float(mse):.3f}. Starting to sample.')
+    for sample_ind in range(num_samples):
+        for step_ind in range(50):
+            _ = langevin_step(model=network, train_x=train_x, train_y=train_y, lr=eta, temp=temp, l2=l2)
+
+        with torch.no_grad():
+            sampled_outputs[sample_ind] = network(test_x)[:, 0]
+
     print(f'\n ====================================================')
+    return sampled_outputs
 
 
 def test(network, test_x, test_y):
@@ -107,7 +108,7 @@ def test(network, test_x, test_y):
         test_loss = torch.mean((network_y - test_y)**2)
         test_acc = torch.mean((torch.argmax(network_y, dim=1) == torch.argmax(test_y, dim=1)).float())
     # save the test predictions from head #0
-    return test_loss, test_acc, network_y
+    return test_loss, test_acc
 
 
 def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_digit, seq_of_test_y_digit,
@@ -117,30 +118,30 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_dig
     test_loss_matrix = np.zeros((num_tasks, num_tasks))
     train_acc_matrix = np.zeros((num_tasks, num_tasks))
     test_acc_matrix = np.zeros((num_tasks, num_tasks))
-    test_predictions = []
+    samples_across_seq = []
 
     for i in tqdm.trange(num_tasks, position=0, leave=True):
         # for the first task, set the l2 regularizer to 0
         print(f'\n =================================================')
-        train(network, seq_of_train_x[i],
-              seq_of_train_y_digit[i].long(), eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
-              update_freq=update_freq, temp=temp)
+
+        samples_across_seq.append(train(network, seq_of_train_x[i],
+                                        seq_of_train_y_digit[i].long(),
+                                        test_x=seq_of_test_x[0],
+                                        eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
+                                        update_freq=update_freq, temp=temp, num_samples=10))
+
         for j in range(num_tasks):
-            test_loss, test_acc, test_preds = test(network, seq_of_test_x[j], seq_of_test_y_digit[j].long())
-            train_loss, train_acc, train_preds = test(network, seq_of_train_x[j], seq_of_train_y_digit[j].long())
+            test_loss, test_acc = test(network, seq_of_test_x[j], seq_of_test_y_digit[j].long())
+            train_loss, train_acc = test(network, seq_of_train_x[j], seq_of_train_y_digit[j].long())
             train_loss_matrix[j, i] = train_loss
             test_loss_matrix[j, i] = test_loss
             train_acc_matrix[j, i] = train_acc
             test_acc_matrix[j, i] = test_acc
 
-            # save the test predictions on the first task's test set from output head #0 for comparison vs theory
-            if j == 0:
-                test_predictions.append(test_preds[:, 0])
-
             if i == 0 and j == 0:
-                if train_loss > 2e-3:
+                if train_loss > 5e-3:
                     print('!!!!!! Training did not appear to converge for the first task.')
             # if j == i:
             #     print(f'train loss{train_loss:.3f}, test loss{test_loss:.3f}')
 
-    return train_loss_matrix, test_loss_matrix, train_acc_matrix, test_acc_matrix, test_predictions
+    return train_loss_matrix, test_loss_matrix, train_acc_matrix, test_acc_matrix, torch.stack(samples_across_seq)
