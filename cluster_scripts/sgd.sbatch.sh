@@ -1,6 +1,9 @@
 #!/bin/bash
 #!/bin/bash
-#SBATCH -c 1                # Number of cores (-c)
+#SBATCH -n 1                # Number of CPU cores (-c)
+#SBATCH -p gpu
+#SBATCH --gres=gpu:2
+#SBATCH --gpu-freq=high
 
 module load python
 module load cuda/9.0-fasrc02

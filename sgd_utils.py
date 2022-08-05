@@ -64,7 +64,7 @@ def langevin_step(model: MLP, train_x, train_y, lr, temp, l2):
 
 def train(network, train_x, train_y, test_x,
           n_steps=5000, eta=0.001, l2=1, update_freq=1000, temp=0, num_samples=0,
-          convergence_threshold=-1):
+          convergence_threshold=-1, str_output_fn=print):
 
     network.anchor()
     mse = None
@@ -78,20 +78,20 @@ def train(network, train_x, train_y, test_x,
             curr_best_loss = mse.clone()
 
         if mse < TRAIN_MSE_THRESHOLD:
-            print(f'\n ***** training MSE less than {TRAIN_MSE_THRESHOLD}. Starting to sample.')
+            str_output_fn(f'\n ***** training MSE less than {TRAIN_MSE_THRESHOLD}. Starting to sample.')
             break
 
         if convergence_threshold > 0:
             if mse.data > curr_best_loss:
                 convergence_threshold -= 1
                 if convergence_threshold < 0:
-                    print(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
+                    str_output_fn(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
                     break
 
         if step % update_freq == 0:
-            print(f'{step} steps || tr MSE:{torch.mean((network(train_x) - train_y) ** 2):.4f}')
+            str_output_fn(f'{step} steps || tr MSE:{torch.mean((network(train_x) - train_y) ** 2):.4f}')
 
-    print(f'\n Training finished for one task. Final training loss {float(mse):.3f}. Starting to sample.')
+    str_output_fn(f'\n Training finished for one task. Final training loss {float(mse):.3f}. Starting to sample.')
     for sample_ind in range(num_samples):
         for step_ind in range(1):
             _ = langevin_step(model=network, train_x=train_x, train_y=train_y, lr=eta, temp=temp, l2=l2)
@@ -99,7 +99,7 @@ def train(network, train_x, train_y, test_x,
         with torch.no_grad():
             sampled_outputs[sample_ind] = network(test_x)[:, 0]
 
-    print(f'\n ====================================================')
+    str_output_fn(f'\n ====================================================')
     return sampled_outputs
 
 
@@ -114,7 +114,13 @@ def test(network, test_x, test_y):
 
 
 def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_digit, seq_of_test_y_digit,
-                      learning_rate, num_steps, l2, update_freq=1000, temp=0, convergence_threshold=-1):
+                      learning_rate, num_steps, l2, update_freq=1000, temp=0, convergence_threshold=-1, logger=None):
+
+    if logger is None:
+        str_output_fn = print
+    else:
+        str_output_fn = logger.log
+
     num_tasks = len(seq_of_train_x)
     train_loss_matrix = np.zeros((num_tasks, num_tasks))
     test_loss_matrix = np.zeros((num_tasks, num_tasks))
@@ -131,7 +137,7 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y_dig
                                         test_x=seq_of_test_x[0],
                                         eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
                                         update_freq=update_freq, temp=temp, num_samples=1,
-                                        convergence_threshold=convergence_threshold))
+                                        convergence_threshold=convergence_threshold, str_output_fn=str_output_fn))
 
         for j in range(num_tasks):
             test_loss, test_acc = test(network, seq_of_test_x[j], seq_of_test_y_digit[j].long())
