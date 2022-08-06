@@ -74,7 +74,7 @@ def train(network, train_x, train_y, test_x,
     for step in range(n_steps):
         mse = langevin_step(model=network, train_x=train_x, train_y=train_y, lr=eta, temp=temp, l2=l2)
 
-        if mse.data < curr_best_loss:
+        if mse < curr_best_loss:
             curr_best_loss = mse.clone()
 
         if mse < TRAIN_MSE_THRESHOLD:
@@ -85,6 +85,9 @@ def train(network, train_x, train_y, test_x,
             if mse.data > curr_best_loss:
                 convergence_threshold -= 1
                 if convergence_threshold < 0:
+                    if mse > TRAIN_MSE_THRESHOLD:
+                        str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}. Reducing L2.')
+                        l2 = l2 * 2/3
                     str_output_fn(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
                     break
 
@@ -99,7 +102,8 @@ def train(network, train_x, train_y, test_x,
         with torch.no_grad():
             sampled_outputs[sample_ind] = network(test_x)[:, 0]
 
-    str_output_fn(f'\n ====================================================')
+
+    str_output_fn(f'\n =========== Training ended after {step+1} steps =================')
     return sampled_outputs
 
 

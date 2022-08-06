@@ -24,15 +24,17 @@ def initialize():
 
 
 class ClusterResultOrganizer:
-    def __init__(self, local_path, batch_name, max_ind=300):
+    def __init__(self, local_path, batch_name, sort_by_key, max_ind=300):
         self.max_ind = max_ind
         self.all_data_obj = []
         self.all_args = []
         self.local_path = local_path
         self.batch_name = batch_name
         self.args = None
+        self.args_key = sort_by_key
 
     def load_all(self):
+        values_for_args_key = []
         for file_ind in range(self.max_ind):
             file_path = f'{self.local_path}/{self.batch_name}/{self.batch_name}_{file_ind}.results'
             if os.path.isfile(file_path):
@@ -40,22 +42,25 @@ class ClusterResultOrganizer:
                 self.all_data_obj.append(_obj)
                 self.all_args.append(_obj['args'])
                 self.args = _obj['args']
+                if vars(self.args)[self.args_key] not in values_for_args_key:
+                    values_for_args_key.append(vars(self.args)[self.args_key])
 
         print('=================== Cluster organizer ===================')
         if len(self.all_data_obj) > 0:
             print(f'{len(self.all_data_obj)} data objects loaded from folder "{self.batch_name}".')
         else:
             print(f'!!!!! No data file was found !!!!!')
+        print(f'For key <<{self.args_key}>>, the values are {values_for_args_key}')
         print('=================== Cluster organizer ===================')
 
-    def organize_results(self, value_key, args_key):
+    def organize_results(self, value_key):
         organized_results = {}
 
         for obj_ind in range(len(self.all_data_obj)):
-            if args_key not in vars(self.all_args[obj_ind]).keys():
-                raise ValueError(f'args key {args_key} not found in results')
+            if self.args_key not in vars(self.all_args[obj_ind]).keys():
+                raise ValueError(f'args key {self.args_key} not found in results')
 
-            param_name = str(vars(self.all_args[obj_ind])[args_key])
+            param_name = str(vars(self.all_args[obj_ind])[self.args_key])
 
             if value_key not in self.all_data_obj[obj_ind].keys():
                 print(f'Organizer: data with key <<{value_key}>> were not found')

@@ -38,7 +38,7 @@ results = {'args': args}
 # Use the same seed for sampling the dataset etc.
 torch.manual_seed(0)
 seq_of_train_x, seq_of_test_x, seq_of_train_y_digit, seq_of_test_y_digit = \
-    data.prepare_sequential_dataset(args.n_tasks, args.P, args.P_test, dataset_name=args.dataset, resample=True,
+    data.prepare_sequential_dataset(args.n_tasks, args.P, args.P_test, dataset_name=args.dataset, resample=False,
                                     permutation=bool(args.permutation), data_path=data_path, n_epochs=args.n_epochs,
                                     precision=32)
 
