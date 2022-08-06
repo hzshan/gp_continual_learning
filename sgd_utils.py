@@ -87,7 +87,7 @@ def train(network, train_x, train_y, test_x,
                 convergence_threshold -= 1
                 if convergence_threshold < 0:
                     if mse > TRAIN_MSE_THRESHOLD:
-                        l2 = l2 * 2 / 3
+                        l2 = l2 * 0.8
                         str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}.'
                                       f' Reducing L2 to {l2:.3E}.')
 
