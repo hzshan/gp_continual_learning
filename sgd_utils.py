@@ -87,8 +87,10 @@ def train(network, train_x, train_y, test_x,
                 convergence_threshold -= 1
                 if convergence_threshold < 0:
                     if mse > TRAIN_MSE_THRESHOLD:
-                        str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}. Reducing L2.')
-                        l2 = l2 * 2/3
+                        l2 = l2 * 2 / 3
+                        str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}.'
+                                      f' Reducing L2 to {l2:.3E}.')
+
                         convergence_threshold = init_conv_threshold
                     # str_output_fn(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
                     # break
@@ -103,7 +105,6 @@ def train(network, train_x, train_y, test_x,
 
         with torch.no_grad():
             sampled_outputs[sample_ind] = network(test_x)[:, 0]
-
 
     str_output_fn(f'\n =========== Training ended after {step+1} steps =================')
     return sampled_outputs
