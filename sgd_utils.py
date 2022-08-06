@@ -69,6 +69,7 @@ def train(network, train_x, train_y, test_x,
     network.anchor()
     mse = None
     sampled_outputs = torch.zeros((num_samples, test_x.shape[0]))
+    init_conv_threshold = convergence_threshold
 
     curr_best_loss = torch.ones(1).to(train_x.device) * 999
     for step in range(n_steps):
@@ -81,15 +82,16 @@ def train(network, train_x, train_y, test_x,
             str_output_fn(f'\n ***** training MSE less than {TRAIN_MSE_THRESHOLD}. Starting to sample.')
             break
 
-        if convergence_threshold > 0:
+        if init_conv_threshold > 0:
             if mse.data > curr_best_loss:
                 convergence_threshold -= 1
                 if convergence_threshold < 0:
                     if mse > TRAIN_MSE_THRESHOLD:
                         str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}. Reducing L2.')
                         l2 = l2 * 2/3
-                    str_output_fn(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
-                    break
+                        convergence_threshold = init_conv_threshold
+                    # str_output_fn(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
+                    # break
 
         if step % update_freq == 0:
             str_output_fn(f'{step} steps || tr MSE:{torch.mean((network(train_x) - train_y) ** 2):.4f}')
