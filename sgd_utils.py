@@ -37,9 +37,9 @@ class MLP(torch.nn.Module):
                 width = self.N0
             else:
                 width = self.N
-            x = self.Ls[i](x)
-            x -= torch.mean(x).data
-            x /= torch.std(x).data
+            x = self.Ls[i](x) / math.sqrt(width)
+            # x -= torch.mean(x).data
+            # x /= torch.std(x).data
             x = torch.relu(x)
 
         return self.readout(x) / math.sqrt(self.N)
@@ -87,7 +87,7 @@ def train(network, train_x, train_y, test_x,
                 convergence_threshold -= 1
                 if convergence_threshold < 0:
                     if mse > TRAIN_MSE_THRESHOLD:
-                        l2 = l2 * 0.8
+                        l2 = l2 * 0.6
                         str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}.'
                                       f' Reducing L2 to {l2:.3E}.')
 

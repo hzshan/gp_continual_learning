@@ -2,6 +2,9 @@ import numpy as np
 import tqdm, utils, theory, pickle, cluster_utils, data, torch, sgd_utils, math, sys
 import torch.nn.functional as F
 
+UPDATE_FREQ = 20000
+CONVERGENCE_THRESHOLD = 50
+
 """
 Updated Aug 5 2022
 Do gradient-based simulations (SGD, Langevin etc.) of continual learning.
@@ -63,7 +66,8 @@ train_losses, test_losses, train_accs, test_accs, sampled_outputs =\
       sgd_utils.train_on_sequence(network, seq_of_train_x, seq_of_test_x,
                                   seq_of_train_y_onehot, seq_of_test_y_onehot,
                                   learning_rate=args.eta, num_steps=args.n_steps, l2=args.l2,
-                                  temp=args.T, update_freq=10000, logger=logger)
+                                  temp=args.T, update_freq=UPDATE_FREQ, logger=logger,
+                                  convergence_threshold=CONVERGENCE_THRESHOLD)
 
 
 results['test acc'] = test_accs
