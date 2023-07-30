@@ -1,0 +1,6 @@
+fname=gp_5x500_mnist_split_10context_5L_diff_strength
+cd /n/home11/haozheshan/ContinualLearning2022/outputs/
+find $fname | tar -c -f $fname.tar.gz -T -
+rm -rf $fname
+cd ~/
+
