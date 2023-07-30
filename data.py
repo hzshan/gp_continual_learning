@@ -87,16 +87,37 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster, num_cluster
 
 
 class ReluTeachers:
-    def __init__(self, input_dim, hidden_dim, teacher_similarity, num_teachers=5, accumulate=False, device=None):
+    """Set of two-layer ReLU teacher networks.
+
+    The scalar output has a fixed bias, which makes sure that the mean output on a unit Gaussian input is zero.
+    
+    Attributes:
+        input_dim: N0
+        hidden_dim: N
+        teacher_similarity: pearson correlation between parameters in different teacher networks
+        num_teachers: number of teacher networks to generate
+        accumulate: whether to accumulate changes in parameters across teachers
+        device: torch device
+        same_weight: whether to use the same hidden-layer weight for all teachers.
+    """
+    def __init__(self,
+                input_dim,
+                hidden_dim,
+                teacher_similarity,
+                num_teachers=5,
+                accumulate=False,
+                device=None,
+                same_weight=True):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
-        self.Ws = []
-        self.As = []
-        self.biases = []
+        self.Ws = []  # list of first-layer weight matrices
+        self.As = []  # list of second-layer readout weights
+        self.biases = []  # list of scalar biases for teacher outputs.
         self.num_teachers = num_teachers
         self.accumulative_change = accumulate
 
-        test_input = torch.normal(torch.zeros((input_dim * 5, input_dim)))
+        # unit Gaussian input, used to compute the mean output and set to zero
+        test_input = torch.normal(torch.zeros((input_dim * 5, input_dim)))  
 
         # the way parameters are generated such that any pair of parameters has the same correlation (not Markovian)
         W_ref = torch.normal(torch.zeros((input_dim, hidden_dim)))
@@ -104,14 +125,21 @@ class ReluTeachers:
 
         for i in range(num_teachers):
             if i == 0 or self.accumulative_change == False:
-                self.Ws.append(np.sqrt(teacher_similarity) * W_ref +
-                            np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((input_dim, hidden_dim))))
+
+                if same_weight:
+                    self.Ws.append(W_ref)
+                else:
+                    self.Ws.append(np.sqrt(teacher_similarity) * W_ref +
+                                np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((input_dim, hidden_dim))))
                 self.As.append(
                     np.sqrt(teacher_similarity) * A_ref +
                     np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((hidden_dim, 1))))
             else:
-                self.Ws.append(np.sqrt(teacher_similarity) * self.Ws[-1] +
-                            np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((input_dim, hidden_dim))))
+                if same_weight:
+                    self.Ws.append(W_ref)
+                else:
+                    self.Ws.append(np.sqrt(teacher_similarity) * self.Ws[-1] +
+                                np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((input_dim, hidden_dim))))
                 self.As.append(
                     np.sqrt(teacher_similarity) * self.As[-1] +
                     np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((hidden_dim, 1))))  
@@ -139,6 +167,25 @@ def prepare_cluster_dataset(num_tasks: int,
                             teacher_similarity: float, input_similarity: float,
                             accumulate: False,
                             precision=64, device=None):
+    """Generate toy datasets and teacher-generated labels.
+
+    Each dataset has several Gaussian clusters.
+    
+    num_tasks: number of tasks. Each "task" has a unique teacher.
+    train_p: number of training samples per task.
+    test_p: number of test samples per task.
+    num_clusters: number of cluster centers.
+    input_dim: dimension of input (N0).
+    hidden_dim: dimension of hidden layer (N).
+    relative_radius: radius of each cluster relative to the distance between cluster centers.
+    teacher_similarity: pearson correlation between parameters in different teacher networks.
+        (accepts non-negative values)
+    input_similarity: pearson correlation between cluster centers in different datasets.
+        (accepts non-negative values)
+    accumulate: whether to accumulate changes in parameters across teachers.
+    precision: precision of floating point numbers.
+    device: torch device.
+    """
     all_x_train, all_x_test = get_clustered_input(num_train_per_cluster=int(np.ceil(train_p / num_clusters)),
                                                   num_test_per_cluster=int(np.ceil(test_p / num_clusters)),
                                                   num_cluster=num_clusters,
@@ -311,14 +358,30 @@ def prepare_permuted_dataset(num_tasks: int,
     This prepares a binary permuted task. Odd vs even digits
     """
 
-    all_class_1_train_x, all_class_2_train_x, all_class_1_test_x, all_class_2_test_x = _load_and_two_classify_dataset(dataset_name, data_path)
+    (all_class_1_train_x,
+    all_class_2_train_x,
+    all_class_1_test_x,
+    all_class_2_test_x) = _load_and_two_classify_dataset(dataset_name, data_path)
 
-    return _generate_permuted_dataset_from_two_classes(all_class_1_train_x, all_class_2_train_x, all_class_1_test_x, all_class_2_test_x,
-                                                       permutation=permutation, num_tasks=num_tasks, train_p=train_p, test_p=test_p,
-                                                         resample=resample, precision=precision)
+    return _generate_permuted_dataset_from_two_classes(all_class_1_train_x,
+                                                       all_class_2_train_x,
+                                                       all_class_1_test_x,
+                                                       all_class_2_test_x,
+                                                       permutation=permutation,
+                                                       num_tasks=num_tasks,
+                                                       train_p=train_p,
+                                                       test_p=test_p,
+                                                       resample=resample,
+                                                       precision=precision)
 
 
-def _generate_split_dataset_from_loaded_data(all_train_x, all_test_x, all_train_digits, all_test_digits, n_tasks, train_p, test_p, precision=64):
+def _generate_split_dataset_from_loaded_data(all_train_x,
+                                            all_test_x,
+                                            all_train_digits,
+                                            all_test_digits,
+                                            n_tasks, train_p,
+                                            test_p,
+                                            precision=64):
 
     seq_of_train_x = []
     seq_of_test_x = []
@@ -383,7 +446,8 @@ def load_dataset(dataset_name: str, num_train: int, num_test: int, path=None):
     if path is None:
         path = '/Users/haozheshan/Dropbox/codes/gp_continual_learning/datasets'
 
-    assert dataset_name in ['cifar', 'mnist', 'fashion', 'cifar100', 'emnist'], 'dataset name not understood'
+    assert (dataset_name in ['cifar', 'mnist', 'fashion', 'cifar100', 'emnist'],
+             'dataset name not understood')
 
     train_set = None
     test_set = None
