@@ -83,10 +83,16 @@ else:
     K12 = theory.k_ntk(seq_of_train_x[0], seq_of_train_x[1], depth=args.depth, lamb=args.lambda_val)
 
 
-results['Vt_Sigma1_Vt'] = args.P**-1 * seq_of_train_y[0].T @ np.linalg.inv(K1) @ K12 @ K12.T @ np.linalg.inv(K1) @ seq_of_train_y[0]
-results['V1_Sigma1_Vt'] = args.P**-1 * seq_of_train_y[0].T @ K12 @ np.linalg.inv(K2) @ seq_of_train_y[1]
-results['V1_V1'] = args.P**-1 * seq_of_train_y[0].T @ np.linalg.inv(K1) @ seq_of_train_y[0]
-results['tr(P1P2)/P'] = np.trace(K12 @ np.linalg.inv(K2) @ K12.T @ np.linalg.inv(K1)) / args.P
+Y1 = seq_of_train_y[0]
+Y2 = seq_of_train_y[1]
+v1_norm_sq = float(Y1.T @ torch.inverse(K1) @ Y1)
+v1v2 = float(Y1.T @ torch.inverse(K1) @ K12 @ torch.inverse(K2) @ Y2)
+results['tr(P1P2)/P'].append(float(torch.trace(torch.inverse(K1) @ K12 @ torch.inverse(K2) @ K12.T)) / args.P)
+results['V1-V2'].append(2 - 2 * v1v2 / v1_norm_sq)
+# results['Vt_Sigma1_Vt'] = args.P**-1 * seq_of_train_y[0].T @ np.linalg.inv(K1) @ K12 @ K12.T @ np.linalg.inv(K1) @ seq_of_train_y[0]
+# results['V1_Sigma1_Vt'] = args.P**-1 * seq_of_train_y[0].T @ K12 @ np.linalg.inv(K2) @ seq_of_train_y[1]
+# results['V1_V1'] = args.P**-1 * seq_of_train_y[0].T @ np.linalg.inv(K1) @ seq_of_train_y[0]
+# results['tr(P1P2)/P'] = np.trace(K12 @ np.linalg.inv(K2) @ K12.T @ np.linalg.inv(K1)) / args.P
 
 if ON_CLUSTER:
 
