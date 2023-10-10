@@ -58,7 +58,6 @@ def exponential_fit(x, y, p0=[1, 10], plot_axis=None):
 
 def plot_and_exp_fit(series, fit=True, label=None, plot_axis=None, r_and_gain=True, **kwargs):
 
-    plt.scatter(range(len(series)), series, s=4)
     if fit is True:
         
         xaxis = np.arange(len(series))
@@ -360,6 +359,3 @@ def relu(x):
 
 def forward(inputs, weights, readout):
     return weights.shape[1]**-0.5 * torch.relu(inputs.shape[1]**-0.5 * inputs @ weights) @ readout
-
-
-
