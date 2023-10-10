@@ -209,7 +209,7 @@ def compute_mean_predictions(seq_of_train_x, seq_of_train_y, w_var, depth,
 
     aux_variable_means = torch.zeros((num_tasks, N0, 1), device=device, dtype=seq_of_train_x[0].dtype)
     for time_ind in range(num_tasks):
-        y_tilde = seq_of_train_y[time_ind].reshape(-1, 1)
+        y_tilde = seq_of_train_y[time_ind].reshape(-1, 1).clone()
         for time_ind_2  in range(time_ind + 1):
             y_tilde -= kernel_fn_to_use(seq_of_train_x[time_ind], seq_of_train_x[time_ind_2], time_ind, time_ind_2) @\
                   aux_variable_means[time_ind_2]
@@ -411,3 +411,42 @@ def k_ntk(x1, x2, depth, sigma=1, lamb=1e5):
     lamb = lamb
     w_covar = compute_W_var(var1=sigma**2, lamb=lamb, n_tasks=2)
     return cross_kernel_new(x1, x2, 1, 1, w_covar, depth=depth, lamb=lamb, sigma=sigma)
+
+
+def compute_forgetting_ops(x1, x2, y1, y2, depth, use_ntk_kernel=False):
+    """
+    Compute forgetting OPs (Oct 10 version). Use NNGP kernels by default.
+    
+    Returns:
+        trp1p2/P = Tr(K1^{-1} K12 K2^{-1} K21) / P
+        v1v2_cos = Y1.T K1^{-1} K12 K2^{-1} Y2 / sqrt(Y1.T K1^{-1} Y1) /
+        sqrt(Y2.T K2^{-1} Y2))
+        v1v2_ref: Same as v1v2_cos, but use Y_uniform instead of Y1 and Y2.
+    """
+
+    # the kernel_fn takes x1, x2, depth
+    kernel_fn = arccos_kernel_deep if use_ntk_kernel is False else k_ntk
+    K1 = kernel_fn(x1, x1, depth)
+    K2 = kernel_fn(x2, x2, depth)
+    K12 = kernel_fn(x1, x2, depth)
+
+    y_ref = torch.ones_like(y1) / torch.norm(y1)
+
+    assert K1.shape == K2.shape
+    P = K1.shape[0]
+    trp1p2 = float(torch.trace(torch.inverse(K1) @ K12 @ \
+                                torch.inverse(K2) @ K12.T)) / P
+
+    v1_norm_sq = float(y1.T @ torch.inverse(K1) @ y1)
+    v2_norm_sq = float(y2.T @ torch.inverse(K2) @ y2)
+    v1v2 = float(y1.T @ torch.inverse(K1) @ K12 @ torch.inverse(K2) @ y2)
+    v1v2_cos = v1v2 / np.sqrt(v1_norm_sq * v2_norm_sq)
+
+    v1_ref_norm_sq = float(y_ref.T @ torch.inverse(K1) @ y_ref)
+    v2_ref_norm_sq = float(y_ref.T @ torch.inverse(K2) @ y_ref)
+    v1v2_ref = float(y_ref.T @ torch.inverse(K1) @ K12 @
+                      torch.inverse(K2) @ y_ref)
+
+    v1v2_cos_ref = v1v2_ref / np.sqrt(v1_ref_norm_sq * v2_ref_norm_sq)
+
+    return trp1p2, v1v2_cos, v1v2_cos_ref
