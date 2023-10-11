@@ -1,7 +1,6 @@
 #%%
 """
-March 22 2023
-GP-limit continual learning theory for two-way classification problems.
+Continual learning theory using the student-teacher setup.
 1. Be sure to use 64 bit precision
 2. Every job contains MULTIPLE random seeds. This streamlines the job submission process.
 """
@@ -16,9 +15,9 @@ parser.add('P_test', 10)  # size of each testing set
 parser.add('n_tasks', 2, help='number of tasks in the sequence')
 parser.add('T', 0.0, help='temperature')
 parser.add('sigma', 0.2, help='weight variance')
-parser.add('N0', 10, help='input_dimension')
-parser.add('Nh', 10, help='hidden layer width of teachers')
-parser.add('NC', 4, help='number of input clusters')
+parser.add('N0', 100, help='input_dimension')
+parser.add('Nh', 100, help='hidden layer width of teachers')
+parser.add('NC', 10, help='number of input clusters')
 parser.add('radius', 0.1, help='relative radius of input clusters')
 parser.add('tsim', 10, help='similarity between teachers, IN PERCENTAGE')
 parser.add('xsim', 10, help='similarity between inputs, IN PERCENTAGE')
@@ -98,19 +97,21 @@ for seed in range(args.NSEEDS):
 
     results['train magnitude naive'].append(np.linalg.norm(training_predictions_naive.squeeze(), axis=-1)**2 / args.P)
 
+
+
     # compute some order parameters
-    K1 = theory.k_ntk(seq_of_train_x[0], seq_of_train_x[0], args.depth)
-    K2 = theory.k_ntk(seq_of_train_x[1], seq_of_train_x[1], args.depth)
-    K12 = theory.k_ntk(seq_of_train_x[0], seq_of_train_x[1], args.depth)
-    Y1 = seq_of_train_y[0]
-    Y2 = seq_of_train_y[1]
-    v1_norm_sq = float(Y1.T @ torch.inverse(K1) @ Y1)
-    v1v2 = float(Y1.T @ torch.inverse(K1) @ K12 @ torch.inverse(K2) @ Y2)
-    results['tr(P1P2)/P'].append(float(torch.trace(torch.inverse(K1) @ K12 @ torch.inverse(K2) @ K12.T)) / args.P)
-    results['V1-V2'].append(2 - 2 * v1v2 / v1_norm_sq)
+    trp1p2, v1v2cos, v1v2cos_ref = theory.compute_forgetting_ops(
+        x1=seq_of_train_x[0], x2=seq_of_train_x[1],
+        y1=seq_of_train_y[0], y2=seq_of_train_y[1],
+        depth=args.depth)
+
+    results['tr(P1P2)/P'].append(trp1p2)
+    results['V1-V2'].append(2 - 2 * v1v2cos)
 
 
-for key in ['train loss', 'test loss', 'train acc', 'test acc', 'train loss naive', 'test loss naive', 'train acc naive', 'test acc naive']:
+for key in ['train loss', 'test loss', 'train acc', 'test acc',
+            'train loss naive', 'test loss naive', 'train acc naive',
+            'test acc naive']:
     results[key] = np.stack(results[key])
 
 
@@ -118,5 +119,3 @@ if ON_CLUSTER:
 
     logger.finish(results)
     sys.exit()
-
-# %%
