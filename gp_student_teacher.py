@@ -64,13 +64,13 @@ for seed in range(args.NSEEDS):
 
     training_predictions, test_predictions =\
         theory.compute_mean_predictions(seq_of_train_x=seq_of_train_x, seq_of_train_y=seq_of_train_y,
-                                        w_var=args.sigma**2, P_test=args.P_test,
+                                        w_var=args.sigma**2, 
                                         lambda_val=args.lambda_val, seq_of_test_x=seq_of_test_x,
                                         large_lambda=False, depth=args.depth)
 
     training_predictions_naive, test_predictions_naive =\
         theory.compute_mean_predictions(seq_of_train_x=seq_of_train_x, seq_of_train_y=seq_of_train_y,
-                                        w_var=args.sigma**2, P_test=args.P_test,
+                                        w_var=args.sigma**2, 
                                         lambda_val=args.lambda_val, seq_of_test_x=seq_of_test_x,
                                         large_lambda=False, depth=args.depth, use_naive_gp=True)
 

@@ -45,8 +45,10 @@ def add_task_embedding(seq_of_train_x, seq_of_test_x, embedding_dim, strength=10
         return seq_of_train_x, seq_of_test_x
 
 
-def get_clustered_input(num_train_per_cluster, num_test_per_cluster, num_cluster, relative_radius, input_dim,
-                        num_datasets, input_similarity):
+def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
+                        num_cluster, relative_radius, input_dim,
+                        num_datasets, input_similarity,
+                        share_variability=True):
 
     def _generate_centers(n_cluster, n0, n_train_per_cluster,
                           n_test_per_cluster, rel_radius):
@@ -63,10 +65,28 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster, num_cluster
     train_datasets = []
     test_datasets = []
 
-    deviations_from_center_tr = torch.normal(mean=torch.zeros_like(ref_tr_center), std=np.sqrt(relative_radius))
-    deviations_from_center_te = torch.normal(mean=torch.zeros_like(ref_te_center), std=np.sqrt(relative_radius))
+    if share_variability:
+        # in this case, deviations from cluster centers are shared across
+        # datasets. This ensures that when input_similarity = 1, all the 
+        # datasets are identical.
+        deviations_from_center_tr = torch.normal(
+            mean=torch.zeros_like(ref_tr_center),
+            std=np.sqrt(relative_radius))
+
+        deviations_from_center_te = torch.normal(
+            mean=torch.zeros_like(ref_te_center),
+            std=np.sqrt(relative_radius))
 
     for i in range(num_datasets):
+
+        if not share_variability:
+            deviations_from_center_tr = torch.normal(
+                mean=torch.zeros_like(ref_tr_center),
+                std=np.sqrt(relative_radius))
+
+            deviations_from_center_te = torch.normal(
+                mean=torch.zeros_like(ref_te_center),
+                std=np.sqrt(relative_radius))
 
         del_tr_center, del_te_center =\
             _generate_centers(n_cluster=num_cluster, n0=input_dim,
@@ -166,7 +186,9 @@ def prepare_cluster_dataset(num_tasks: int,
                             input_dim: int, hidden_dim: int, relative_radius: float,
                             teacher_similarity: float, input_similarity: float,
                             accumulate: False,
-                            precision=64, device=None):
+                            precision=64,
+                            device=None,
+                            input_share_variability=True):
     """Generate toy datasets and teacher-generated labels.
 
     Each dataset has several Gaussian clusters.
@@ -186,13 +208,15 @@ def prepare_cluster_dataset(num_tasks: int,
     precision: precision of floating point numbers.
     device: torch device.
     """
-    all_x_train, all_x_test = get_clustered_input(num_train_per_cluster=int(np.ceil(train_p / num_clusters)),
-                                                  num_test_per_cluster=int(np.ceil(test_p / num_clusters)),
-                                                  num_cluster=num_clusters,
-                                                  relative_radius=relative_radius,
-                                                  input_dim=input_dim,
-                                                  num_datasets=num_tasks,
-                                                  input_similarity=input_similarity)
+    all_x_train, all_x_test = get_clustered_input(
+        num_train_per_cluster=int(np.ceil(train_p / num_clusters)),
+        num_test_per_cluster=int(np.ceil(test_p / num_clusters)),
+        num_cluster=num_clusters,
+        relative_radius=relative_radius,
+        input_dim=input_dim,
+        num_datasets=num_tasks,
+        input_similarity=input_similarity,
+        share_variability=input_share_variability)
 
     if device is not None:
         all_x_train = [x.to(device) for x in all_x_train]
