@@ -1,4 +1,4 @@
-script_name=gp_toy_model.py
+script_name=gp_student_teacher.py
 P=50
 P_test=100 #default 500
 n_tasks=30
@@ -23,7 +23,7 @@ TIME_REQUEST=0-6:00
 PARTITION=shared
 
 
-batch_name=gp_toy_${n_tasks}x${P}_xsim${xsim}_${depth}L_diff_tsim
+batch_name=gp_toy_${n_tasks}x${P}_${depth}L_diff_tsim_and_xsim
 
 directory="/n/home11/haozheshan/ContinualLearning2022/outputs/${batch_name}/"
 rm -rf $directory  # remove the directory
@@ -41,16 +41,16 @@ trial_ind=0
 
 for tsim in ${values[@]}
 do
-  
-  echo $tsim
-  export P P_test n_tasks T sigma N0 Nh NC radius tsim xsim N0context depth seed lambda_val script_name trial_ind batch_name NSEEDS context_strength
+  for xsim in ${values[@]}
+  do
+    echo $tsim
+    export P P_test n_tasks T sigma N0 Nh NC radius tsim xsim N0context depth seed lambda_val script_name trial_ind batch_name NSEEDS context_strength
 
-  sbatch --account=cox_lab --job-name=$batch_name --mem=$MEM_REQUEST -t $TIME_REQUEST -p $PARTITION\
-  -o /n/home11/haozheshan/ContinualLearning2022/outputs/${batch_name}/run_message_${trial_ind}.txt\
-  /n/home11/haozheshan/ContinualLearning2022/cluster_scripts/gp_toy.sbatch.sh
+    sbatch --account=cox_lab --job-name=$batch_name --mem=$MEM_REQUEST -t $TIME_REQUEST -p $PARTITION\
+    -o /n/home11/haozheshan/ContinualLearning2022/outputs/${batch_name}/run_message_${trial_ind}.txt\
+    /n/home11/haozheshan/ContinualLearning2022/cluster_scripts/gp_student_teacher.sbatch.sh
 
-  trial_ind=$((trial_ind+1))
-  sleep 0.1
+    trial_ind=$((trial_ind+1))
+    sleep 0.1
+  done
 done
-
-
