@@ -470,8 +470,8 @@ def load_dataset(dataset_name: str, num_train: int, num_test: int, path=None):
     if path is None:
         path = '/Users/haozheshan/Dropbox/codes/gp_continual_learning/datasets'
 
-    assert (dataset_name in ['cifar', 'mnist', 'fashion', 'cifar100', 'emnist'],
-             'dataset name not understood')
+    assert dataset_name in ['cifar', 'mnist', 'fashion', 'cifar100', 'emnist'],\
+          'dataset name not understood'
 
     train_set = None
     test_set = None
