@@ -56,11 +56,35 @@ def exponential_fit(x, y, p0=[1, 10], plot_axis=None):
     return asymptote, time_constant, asymptote + (y[0] - asymptote) * np.exp(-plot_axis / time_constant)
 
 
-def plot_and_exp_fit(series, fit=True, label=None, plot_axis=None, r_and_gain=True, **kwargs):
+def sum_of_exp_fit(x, y, p0=[1, 10, 1, 10], plot_axis=None):
+    """
+    Fit an exponential relaxation process to y=f(x) in the form of
+    y = a1 + (y0 - a1) * exp(-x / b1) + a2 + (y0 - a2) * exp(-x / b2).
+    Enforcing a non-negative constraint on the asymptote (a)
+    and the time constant (b)
+    Returns:
+        offset1, time_constant1, offset2, time_constant2, pred
+    """
+    if plot_axis is None:
+        plot_axis = x
 
+    a1_fit, b1_fit, a2_fit, b2_fit =\
+        scipy.optimize.curve_fit(
+            lambda t, a1, b1, a2, b2: a1 + (y[0] - a1) * np.exp(-t / b1) +\
+                a2 + (y[0] - a2) * np.exp(-t / b2), x, y, p0=p0, bounds=(0, np.inf))[0]
+    return (a1_fit, b1_fit, a2_fit, b2_fit,
+    a1_fit + (y[0] - a1_fit) * np.exp(-plot_axis / b1_fit) + a2_fit + (y[0] - a2_fit) * np.exp(-plot_axis / b2_fit))
+
+
+def plot_and_exp_fit(series, fit=True,
+                     label=None, plot_axis=None, r_and_gain=True,
+                     plot_raw=False, **kwargs):
+    xaxis = np.arange(len(series))
+    if plot_raw:
+        plt.scatter(xaxis, series, s=1)
     if fit is True:
-        
-        xaxis = np.arange(len(series))
+
+
         if plot_axis is None:
             plot_axis = xaxis
         init_offset = series[0]
