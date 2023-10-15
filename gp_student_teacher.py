@@ -5,27 +5,11 @@ Continual learning theory using the student-teacher setup.
 2. Every job contains MULTIPLE random seeds. This streamlines the job submission process.
 """
 import numpy as np
-import theory, cluster_utils, data, torch, sys
+import theory, cluster_utils, data, torch, sys, configs
 
 ON_CLUSTER, data_path, output_home_path = cluster_utils.initialize()
 
-parser = cluster_utils.Args()
-parser.add('P', 50)  # size of each training set
-parser.add('P_test', 10)  # size of each testing set
-parser.add('n_tasks', 2, help='number of tasks in the sequence')
-parser.add('T', 0.0, help='temperature')
-parser.add('sigma', 0.2, help='weight variance')
-parser.add('N0', 100, help='input_dimension')
-parser.add('Nh', 100, help='hidden layer width of teachers')
-parser.add('NC', 10, help='number of input clusters')
-parser.add('radius', 0.1, help='relative radius of input clusters')
-parser.add('tsim', 10, help='similarity between teachers, IN PERCENTAGE')
-parser.add('xsim', 10, help='similarity between inputs, IN PERCENTAGE')
-parser.add('depth', 1, help='num of hidden layers. setting depth=0 would use the input kernel')
-parser.add('NSEEDS', 5, help='number of random seeds')
-parser.add('lambda_val', 1e5, help='lambda')
-parser.add('N0context', 100, help='embedding dimension')
-parser.add('context_strength', 1.0, help='magnifying factor for context embedding')
+parser = configs.StudentTeacherArgsParser()
 args = parser.parse_args()
 
 args.tsim = float(args.tsim / 100)
@@ -38,7 +22,9 @@ logger = cluster_utils.Logger(output_path=f'{output_home_path}{args.BATCH_NAME}/
 logger.log(str(args))
 results = {'args': args}
 
-for key in ['train loss', 'test loss', 'train acc', 'test acc', 'train loss naive', 'test loss naive', 'train acc naive', 'test acc naive',
+for key in ['train loss', 'test loss', 'train acc',
+            'test acc', 'train loss naive', 'test loss naive',
+            'train acc naive', 'test acc naive',
             'train magnitude', 'train magnitude naive', 'tr(P1P2)/P', 'V1-V2']:
     results[key] = []
 
@@ -60,19 +46,30 @@ for seed in range(args.NSEEDS):
                                     accumulate=False,
                                     precision=64)
 
-    seq_of_train_x, seq_of_test_x = data.add_task_embedding(seq_of_train_x, seq_of_test_x, args.N0context, args.context_strength)
+    seq_of_train_x, seq_of_test_x = data.add_task_embedding(
+        seq_of_train_x,
+        seq_of_test_x,
+        args.N0context,
+        args.context_strength)
 
     training_predictions, test_predictions =\
-        theory.compute_mean_predictions(seq_of_train_x=seq_of_train_x, seq_of_train_y=seq_of_train_y,
+        theory.compute_mean_predictions(seq_of_train_x=seq_of_train_x,
+                                        seq_of_train_y=seq_of_train_y,
                                         w_var=args.sigma**2, 
-                                        lambda_val=args.lambda_val, seq_of_test_x=seq_of_test_x,
-                                        large_lambda=False, depth=args.depth)
+                                        lambda_val=args.lambda_val,
+                                        seq_of_test_x=seq_of_test_x,
+                                        large_lambda=False,
+                                        depth=args.depth)
 
     training_predictions_naive, test_predictions_naive =\
-        theory.compute_mean_predictions(seq_of_train_x=seq_of_train_x, seq_of_train_y=seq_of_train_y,
+        theory.compute_mean_predictions(seq_of_train_x=seq_of_train_x,
+                                        seq_of_train_y=seq_of_train_y,
                                         w_var=args.sigma**2, 
-                                        lambda_val=args.lambda_val, seq_of_test_x=seq_of_test_x,
-                                        large_lambda=False, depth=args.depth, use_naive_gp=True)
+                                        lambda_val=args.lambda_val,
+                                        seq_of_test_x=seq_of_test_x,
+                                        large_lambda=False,
+                                        depth=args.depth,
+                                        use_naive_gp=True)
 
 
     train_loss, test_loss, train_acc, test_acc =\
@@ -88,16 +85,17 @@ for seed in range(args.NSEEDS):
     results['train acc'].append(train_acc)
     results['test acc'].append(test_acc)
 
-    results['train magnitude'].append(np.linalg.norm(training_predictions.squeeze(), axis=-1)**2 / args.P)
+    results['train magnitude'].append(
+        np.linalg.norm(training_predictions.squeeze(), axis=-1)**2 / args.P)
 
     results['train loss naive'].append(train_loss_naive)
     results['test loss naive'].append(test_loss_naive)
     results['train acc naive'].append(train_acc_naive)
     results['test acc naive'].append(test_acc_naive)
 
-    results['train magnitude naive'].append(np.linalg.norm(training_predictions_naive.squeeze(), axis=-1)**2 / args.P)
-
-
+    results['train magnitude naive'].append(
+        np.linalg.norm(
+            training_predictions_naive.squeeze(), axis=-1)**2 / args.P)
 
     # compute some order parameters
     trp1p2, v1v2cos, v1v2cos_ref = theory.compute_forgetting_ops(
@@ -108,12 +106,10 @@ for seed in range(args.NSEEDS):
     results['tr(P1P2)/P'].append(trp1p2)
     results['V1-V2'].append(2 - 2 * v1v2cos)
 
-
 for key in ['train loss', 'test loss', 'train acc', 'test acc',
             'train loss naive', 'test loss naive', 'train acc naive',
             'test acc naive']:
     results[key] = np.stack(results[key])
-
 
 if ON_CLUSTER:
 
