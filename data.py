@@ -188,7 +188,8 @@ def prepare_cluster_dataset(num_tasks: int,
                             accumulate: False,
                             precision=64,
                             device=None,
-                            input_share_variability=True):
+                            input_share_variability=True,
+                            teacher_change_weights=False):
     """Generate toy datasets and teacher-generated labels.
 
     Each dataset has several Gaussian clusters.
@@ -207,6 +208,8 @@ def prepare_cluster_dataset(num_tasks: int,
     accumulate: whether to accumulate changes in parameters across teachers.
     precision: precision of floating point numbers.
     device: torch device.
+    input_share_variability: whether to share the deviations from cluster centers across datasets.
+    teacher_change_weights: whether to change the weights of the hidden layer across teachers.
     """
     all_x_train, all_x_test = get_clustered_input(
         num_train_per_cluster=int(np.ceil(train_p / num_clusters)),
@@ -225,8 +228,13 @@ def prepare_cluster_dataset(num_tasks: int,
     assert 0 <= teacher_similarity <= 1, 'Teacher similarity must be between 0 and 1.'
     assert 0 <= input_similarity <= 1, 'Input similarity must be between 0 and 1.'
 
-    teachers = ReluTeachers(input_dim, hidden_dim, teacher_similarity, num_teachers=num_tasks,
-    accumulate=accumulate, device=device)
+    teachers = ReluTeachers(input_dim,
+                            hidden_dim,
+                            teacher_similarity,
+                            num_teachers=num_tasks,
+                            accumulate=accumulate,
+                            device=device,
+                            same_weight=not teacher_change_weights)
 
     all_y_train = []
     all_y_test = []
