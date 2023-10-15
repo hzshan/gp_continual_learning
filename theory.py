@@ -23,6 +23,7 @@ def compute_mean_predictions_on_input(input_x, seq_of_train_x, seq_of_train_y,
     """
     return a T x P_{input} x N0 array. Its i-th element is <f_i(X)>
     """
+    raise DeprecationWarning("This function is deprecated. Use compute_mean_predictions_on_inputs instead.")
     kernel_fn_to_use = None
     if use_naive_gp is True:
         kernel_fn_to_use = cross_kernel
@@ -33,10 +34,15 @@ def compute_mean_predictions_on_input(input_x, seq_of_train_x, seq_of_train_y,
     num_tasks = len(seq_of_train_x)
 
     # create a T x T x P_{input} x N0 array. Its i,j-th element is <f(a_i,W_j,X)>
-    full_test_predictions = torch.zeros((num_tasks, num_tasks, input_x.shape[0], 1), device=device)
+    full_test_predictions = torch.zeros(
+        size=(num_tasks, num_tasks, input_x.shape[0], 1),
+        device=device)
 
     for j in range(num_tasks):
-        full_test_predictions[0, j] = kernel_fn_to_use(input_x, seq_of_train_x[0], j, 0, weight_covar, depth, lamb, sigma) @ self_kernel_inverses[0] @ seq_of_train_y[0]
+        full_test_predictions[0, j] = kernel_fn_to_use(
+            input_x, seq_of_train_x[0],
+            j, 0, weight_covar,
+            depth, lamb, sigma) @ self_kernel_inverses[0] @ seq_of_train_y[0]
 
     for i in range(1, num_tasks):
         for j in range(w_indices):
@@ -69,6 +75,7 @@ def compute_mean_predictions_old(seq_of_train_x, seq_of_train_y, w_var, depth,
     is <f_j(i-th test set)>.
     May 8 2023: The `P_test` parameter is not used but kept temporarily for compatibility with old code.
     """
+    raise DeprecationWarning("This function is deprecated. Use compute_mean_predictions instead.")
     kernel_fn_to_use = None
     if use_naive_gp is True:
         kernel_fn_to_use = cross_kernel
@@ -163,7 +170,9 @@ def compute_mean_predictions_on_inputs(seq_of_inputs, aux_variable_means, seq_of
     num_inputs = len(seq_of_inputs)
     num_time = len(seq_of_train_x)
 
-    predictions = torch.zeros((num_inputs, num_time, seq_of_inputs.shape[1], 1), device=seq_of_train_x.device, dtype=seq_of_train_x[0].dtype)
+    predictions = torch.zeros(
+        size=(num_inputs, num_time, seq_of_inputs.shape[1], 1),
+        device=seq_of_train_x.device, dtype=seq_of_train_x[0].dtype)
 
     for input_ind in range(num_inputs):
         for time_ind in range(num_time):
@@ -181,7 +190,8 @@ def compute_mean_predictions_on_inputs(seq_of_inputs, aux_variable_means, seq_of
 
 
 def compute_mean_predictions(seq_of_train_x, seq_of_train_y, w_var, depth,
-                             lambda_val, seq_of_test_x, large_lambda=False, use_naive_gp=False):
+                             lambda_val, seq_of_test_x,
+                             large_lambda=False, use_naive_gp=False):
     """
     returns a TxTxPxN0 array where the i,jth element is <f_j(X_i)>,
      and a TxTxP_{test}xN0 array where the i,jth element.
@@ -196,31 +206,43 @@ def compute_mean_predictions(seq_of_train_x, seq_of_train_y, w_var, depth,
 
     def kernel_fn_to_use(x1, x2, i1, i2):
         if use_naive_gp:
-            return cross_kernel(x1, x2, i1, i2, weight_covar, depth, lambda_val, np.sqrt(w_var)) * lambda_tilde**np.abs(i1 - i2)
+            return cross_kernel(
+                x1, x2, i1, i2,
+                weight_covar, depth,
+                lambda_val, np.sqrt(w_var)) * lambda_tilde**np.abs(i1 - i2)
         else:
-            return cross_kernel_new(x1, x2, i1, i2, weight_covar, depth, lambda_val, np.sqrt(w_var))
-
+            return cross_kernel_new(
+                x1, x2, i1, i2,
+                weight_covar, depth, lambda_val, np.sqrt(w_var))
 
     all_self_kernels =\
         [kernel_fn_to_use(seq_of_train_x[_i], seq_of_train_x[_i], _i, _i)
          for _i in range(num_tasks)]
     all_self_kernel_inverses = [inverse(_M) for _M in all_self_kernels]
 
+    aux_variable_means = torch.zeros(
+        size=(num_tasks, N0, 1),
+        device=device,
+        dtype=seq_of_train_x[0].dtype)
 
-    aux_variable_means = torch.zeros((num_tasks, N0, 1), device=device, dtype=seq_of_train_x[0].dtype)
     for time_ind in range(num_tasks):
         y_tilde = seq_of_train_y[time_ind].reshape(-1, 1).clone()
         for time_ind_2  in range(time_ind + 1):
-            y_tilde -= kernel_fn_to_use(seq_of_train_x[time_ind], seq_of_train_x[time_ind_2], time_ind, time_ind_2) @\
+            y_tilde -= kernel_fn_to_use(
+                seq_of_train_x[time_ind], seq_of_train_x[time_ind_2],
+                time_ind, time_ind_2) @\
                   aux_variable_means[time_ind_2]
-        aux_variable_means[time_ind] = all_self_kernel_inverses[time_ind] @ y_tilde
+        aux_variable_means[time_ind] = all_self_kernel_inverses[time_ind] @\
+              y_tilde
 
-    train_predictions = compute_mean_predictions_on_inputs(seq_of_train_x, aux_variable_means, seq_of_train_x,
-                                                           large_lambda=large_lambda, kernel_fn_to_use=kernel_fn_to_use)
+    train_predictions = compute_mean_predictions_on_inputs(
+        seq_of_train_x, aux_variable_means, seq_of_train_x,
+        large_lambda=large_lambda, kernel_fn_to_use=kernel_fn_to_use)
     
     if seq_of_test_x is not None:
-        test_predictions = compute_mean_predictions_on_inputs(seq_of_test_x, aux_variable_means, seq_of_train_x,
-                                                           large_lambda=large_lambda, kernel_fn_to_use=kernel_fn_to_use)
+        test_predictions = compute_mean_predictions_on_inputs(
+            seq_of_test_x, aux_variable_means, seq_of_train_x,
+            large_lambda=large_lambda, kernel_fn_to_use=kernel_fn_to_use)
     else:
         test_predictions = None
     return train_predictions, test_predictions
