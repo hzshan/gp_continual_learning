@@ -53,11 +53,14 @@ class ClusterResultOrganizer:
         self.load_all()
         print('Available data keys are ' + str(self.all_data_obj[0].keys()))
         
-
+    def print_args(self):
+        assert self.args is not None, 'No args found.'
+        arg_dict = vars(self.args)
+        for key, val in arg_dict.items():
+            print(f'{key}: {val}')
 
     def load_all(self):
         
-
         filepath = f'{self.local_path}/{self.batch_name}/'
         self.file_path = filepath
         file_list = os.listdir(filepath)
@@ -75,7 +78,9 @@ class ClusterResultOrganizer:
                     self.all_seed_numbers.append(_obj['args'].seed)
                 self.args = _obj['args']
 
-        # attempt to identify the variable that is different between job
+        # attempt to identify the variable that is different between jobs. 
+        # This is done by using the first key found to have multiple values
+        # between jobs.
         if self.sort_by_key is None:
             list_of_all_keys = list(vars(self.all_args[0]).keys())
             for key in list_of_all_keys:
@@ -83,23 +88,28 @@ class ClusterResultOrganizer:
                 for _args in self.all_args:
                     if vars(_args)[key] not in all_unique_values:
                         all_unique_values.append(vars(self.args)[key])
-                if len(all_unique_values) > 1 and key not in ['TRIAL_IND', 'seed']:
+                if len(all_unique_values) > 1 and key not in [
+                    'TRIAL_IND',
+                    'seed'
+                    ]:
                     break
             self.sort_by_key = key
-            print('No key was specified. Automatically using key <<' + self.sort_by_key + '>> to sort the results.')
+            print('No key was specified.'
+                  'Automatically using key <<' + self.sort_by_key + '>>'
+                  ' to sort the results.')
 
         values_for_sort_by_key = []
 
         for _args in self.all_args:
             if vars(_args)[self.sort_by_key] not in values_for_sort_by_key:
                 values_for_sort_by_key.append(vars(_args)[self.sort_by_key])
-        sort_by_key_message = f'For key <<{self.sort_by_key}>>, the values are {values_for_sort_by_key}'
-
-
+        sort_by_key_message = (f'For key <<{self.sort_by_key}>>,'
+        'the values are {values_for_sort_by_key}')
         
         if 'NSEEDS' in vars(self.args).keys():
             self.multiseed = True
-            print('"NSEEDS" found in the arguments. Assuming that each file contains multiple random seeds.')
+            print('"NSEEDS" found in the arguments.'
+                  'Assuming that each file contains multiple random seeds.')
 
         print('=================== Cluster organizer ===================')
         if len(self.all_data_obj) > 0:
@@ -126,17 +136,20 @@ class ClusterResultOrganizer:
             if param_name in organized_results.keys():
                 organized_results[param_name].append(numpied)
                 if self.order_by_seed_number:
-                    organized_results_seed_numbers[param_name].append(self.all_seed_numbers[obj_ind])
+                    organized_results_seed_numbers[param_name].append(
+                        self.all_seed_numbers[obj_ind])
             else:
                 organized_results[param_name] = [numpied]
                 if self.order_by_seed_number:
-                    organized_results_seed_numbers[param_name] = [self.all_seed_numbers[obj_ind]]
+                    organized_results_seed_numbers[param_name] =\
+                          [self.all_seed_numbers[obj_ind]]
 
         # sort results by the random seed number
         for param_name in organized_results.keys():
             organized_results[param_name] = np.array(organized_results[param_name])
             if self.order_by_seed_number:
-                organized_results[param_name] = organized_results[param_name][np.argsort(organized_results_seed_numbers[param_name])]
+                organized_results[param_name] =\
+                      organized_results[param_name][np.argsort(organized_results_seed_numbers[param_name])]
             
             if self.multiseed:
                 organized_results[param_name] = organized_results[param_name][0]
