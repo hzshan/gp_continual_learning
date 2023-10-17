@@ -4,6 +4,10 @@ Continual learning theory using the student-teacher setup.
 1. Be sure to use 64 bit precision
 2. Every job contains MULTIPLE random seeds. This streamlines the job submission process.
 """
+
+# if True, all prediction calculations assume the infinite lambda limit
+USE_LARGE_LAMBDA = False
+
 import numpy as np
 import theory, cluster_utils, data, torch, sys, configs
 
@@ -17,8 +21,10 @@ args.xsim = float(args.xsim / 100)
 
 run_name = f'{args.BATCH_NAME}_{args.TRIAL_IND}'
 
-logger = cluster_utils.Logger(output_path=f'{output_home_path}{args.BATCH_NAME}/',
-                              run_name=run_name, only_print=not ON_CLUSTER)
+logger = cluster_utils.Logger(
+    output_path=f'{output_home_path}{args.BATCH_NAME}/',
+    run_name=run_name, only_print=not ON_CLUSTER)
+
 logger.log(str(args))
 results = {'args': args}
 
@@ -34,17 +40,20 @@ for seed in range(args.NSEEDS):
     torch.manual_seed(seed)
 
     seq_of_train_x, seq_of_test_x, seq_of_train_y, seq_of_test_y =\
-        data.prepare_cluster_dataset(num_tasks=args.n_tasks,
-                                    train_p=args.P,
-                                    test_p=args.P_test,
-                                    num_clusters=args.NC,
-                                    input_dim=args.N0,
-                                    hidden_dim=args.Nh,
-                                    relative_radius=args.radius,
-                                    teacher_similarity=args.tsim,
-                                    input_similarity=args.xsim,
-                                    accumulate=False,
-                                    precision=64)
+        data.prepare_cluster_dataset(
+            num_tasks=args.n_tasks,
+            train_p=args.P,
+            test_p=args.P_test,
+            num_clusters=args.NC,
+            input_dim=args.N0,
+            hidden_dim=args.Nh,
+            relative_radius=args.radius,
+            teacher_similarity=args.tsim,
+            input_similarity=args.xsim,
+            accumulate=False,
+            precision=64,
+            teacher_change_weights=bool(args.change_w_in_teachers),
+            )
 
     seq_of_train_x, seq_of_test_x = data.add_task_embedding(
         seq_of_train_x,
@@ -58,7 +67,7 @@ for seed in range(args.NSEEDS):
                                         w_var=args.sigma**2, 
                                         lambda_val=args.lambda_val,
                                         seq_of_test_x=seq_of_test_x,
-                                        large_lambda=False,
+                                        large_lambda=USE_LARGE_LAMBDA,
                                         depth=args.depth)
 
     training_predictions_naive, test_predictions_naive =\
@@ -67,7 +76,7 @@ for seed in range(args.NSEEDS):
                                         w_var=args.sigma**2, 
                                         lambda_val=args.lambda_val,
                                         seq_of_test_x=seq_of_test_x,
-                                        large_lambda=False,
+                                        large_lambda=USE_LARGE_LAMBDA,
                                         depth=args.depth,
                                         use_naive_gp=True)
 
