@@ -3,10 +3,8 @@ import numpy as np
 import tqdm, math
 
 """
-Utility functions for running gradient-based learning (Langevin, SGD)
+Utility functions for running gradient-based learning (Langevin, SGD etc.)
 """
-
-TRAIN_MSE_THRESHOLD = 1e-3
 
 
 class MLP(torch.nn.Module):
@@ -48,16 +46,20 @@ class MLP(torch.nn.Module):
                 x -= torch.mean(x).data
                 x /= torch.std(x).data
             else:
-                raise ValueError('normalization type for the network not understood. need to be none/layer/full')
+                raise ValueError(
+                    'normalization type for the network not understood.'
+                    'need to be none/layer/full')
             x = torch.relu(x)
 
         return self.readout(x) / math.sqrt(self.N) / self.sigma
 
     def anchor(self, zero_anchor=False):
         if zero_anchor:
-            self.anchor_parameters = [torch.zeros_like(p) for p in list(self.parameters())]
+            self.anchor_parameters = [
+                torch.zeros_like(p) for p in list(self.parameters())]
         else:
-            self.anchor_parameters = [p.data.clone() for p in list(self.parameters())]
+            self.anchor_parameters = [
+                p.data.clone() for p in list(self.parameters())]
 
 
 def langevin_step(model: MLP, train_x, train_y, lr, temp, l2, decay=0):
@@ -80,16 +82,24 @@ def langevin_step(model: MLP, train_x, train_y, lr, temp, l2, decay=0):
 
 
 def train(network, train_x, train_y, test_x,
-          n_steps=5000, eta=0.001, l2=1, update_freq=1000, temp=0,
-          convergence_threshold=-1, str_output_fn=print, decay=0, minibatch=-1,
-          first_task=True):
-    str_output_fn(f'\n \n ========================= Training starts ==========================')
+          n_steps=5000,
+          eta=0.001,
+          l2=1,
+          update_freq=1000,
+          temp=0,
+          convergence_threshold=-1,
+          str_output_fn=print,
+          decay=0,
+          minibatch=-1,
+          first_task=True,
+          target_train_loss=1e-3):
+    str_output_fn(
+        f'\n \n ========================= Training starts ==========================')
 
     network.anchor(zero_anchor=first_task)
     # this saves the current parameters as the "anchors" for L2 regularization
     # if it is the first task, the anchor parameters are zeros, so it's just weight decay
 
-    mse = None
     init_conv_threshold = convergence_threshold
 
     curr_best_loss = torch.ones(1).to(train_x.device) * 999
@@ -116,15 +126,15 @@ def train(network, train_x, train_y, test_x,
         if tr_loss < curr_best_loss:
             curr_best_loss = tr_loss.clone()
 
-        if tr_loss < TRAIN_MSE_THRESHOLD:
-            str_output_fn(f'\n ***** training MSE less than {TRAIN_MSE_THRESHOLD}.')
+        if tr_loss < target_train_loss:
+            str_output_fn(f'\n ***** training MSE less than {target_train_loss}.')
             break
 
         if init_conv_threshold > 0:
             if tr_loss.data > curr_best_loss:
                 convergence_threshold -= 1
                 if convergence_threshold < 0:
-                    if tr_loss > TRAIN_MSE_THRESHOLD:
+                    if tr_loss > target_train_loss:
                         l2 = l2 * 0.8
                         decay = decay * 0.8
                         # str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}.'
@@ -160,15 +170,21 @@ def test(network, test_x, test_y):
         test_loss = torch.mean((network_y - test_y)**2)
 
         if output_dim > 1:
-            test_acc = torch.mean((torch.argmax(network_y, dim=1) == torch.argmax(test_y, dim=1)).float())
+            test_acc = torch.mean(
+                (torch.argmax(
+                    network_y, dim=1
+                    ) == torch.argmax(test_y, dim=1)).float())
         else:
-            test_acc = torch.mean((torch.sign(network_y.flatten()) == torch.sign(test_y.flatten())).float())
+            test_acc = torch.mean(
+                (torch.sign(
+                    network_y.flatten()
+                    ) == torch.sign(test_y.flatten())).float())
     return test_loss, test_acc
 
 
 def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y, seq_of_test_y,
                       learning_rate, num_steps, l2, update_freq=1000, temp=0, convergence_threshold=-1,
-                      decay=0, logger=None, minibatch=-1):
+                      decay=0, logger=None, minibatch=-1, target_train_loss=1e-3):
     """
     network: torch.nn.Module model
     seq_of_train_x, seq_of_test_x: num_tasks * num_examples * input_dim
@@ -199,7 +215,8 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y, se
                                         str_output_fn=str_output_fn,
                                         first_task=i == 0,
                                         decay=decay,
-                                        minibatch=minibatch))
+                                        minibatch=minibatch,
+                                        target_train_loss=target_train_loss))
 
         for j in range(num_tasks):
             test_loss, test_acc = test(network, seq_of_test_x[j], seq_of_test_y[j])
@@ -210,11 +227,14 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y, se
             test_acc_matrix[j, i] = test_acc
 
             if i == 0 and j == 0:
-                if train_loss > TRAIN_MSE_THRESHOLD:
+                if train_loss > target_train_loss:
                     print('!!!!!! Training did not appear to converge for the first task.')
 
         for _i, L in enumerate(network.Ls):
             logger.log(f'avg w_ij sq in layer {_i + 1} is {torch.mean(L.weight.data.cpu() ** 2)}')
 
-    return train_loss_matrix, test_loss_matrix, train_acc_matrix, test_acc_matrix,\
-           torch.stack(samples_across_seq).cpu().data
+    return (train_loss_matrix,
+            test_loss_matrix,
+            train_acc_matrix,
+            test_acc_matrix,
+            torch.stack(samples_across_seq).cpu().data)
