@@ -21,7 +21,7 @@ class StudentTeacherArgsParser(cluster_utils.Args):
                     'setting depth=0 would use the input kernel')
         self.add('NSEEDS', 10, help='number of random seeds')
         self.add('lambda_val', 1e5, help='lambda')
-        self.add('N0context', 100, help='embedding dimension')
+        self.add('N0context', 0, help='embedding dimension')
         self.add('context_strength', 1.0,
                 help='magnifying factor for context embedding')
         self.add('change_w_in_teachers', 1.0,
