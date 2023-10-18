@@ -150,6 +150,7 @@ def train(network, train_x, train_y, test_x,
                           f' current l2 {l2}')
 
     str_output_fn(f'\n Training finished for one task. Final training loss {float(tr_loss):.3f}.')
+    fn_on_train = network(train_x)[:, 0]
     fn_on_test = network(test_x)[:, 0]
 
     # compute total parameter change
@@ -159,7 +160,7 @@ def train(network, train_x, train_y, test_x,
 
     str_output_fn(f'\n =========== Training ended after {step+1} steps; l2 {l2}, decay {decay},'
                   f' param change (sq norm): {float(total_param_change_norm.data.numpy()):.5f} =================')
-    return fn_on_test
+    return fn_on_train, fn_on_test
 
 
 def test(network, test_x, test_y):
@@ -201,22 +202,26 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y, se
     test_loss_matrix = np.zeros((num_tasks, num_tasks))
     train_acc_matrix = np.zeros((num_tasks, num_tasks))
     test_acc_matrix = np.zeros((num_tasks, num_tasks))
-    samples_across_seq = []
+    sampled_fn_on_train_list = []
+    sampled_fn_on_test_list = []
 
     for i in tqdm.trange(num_tasks, position=0, leave=True):
         # for the first task, set the l2 regularizer to 0
+        fn_on_train, fn_on_test = train(
+            network, seq_of_train_x[i],
+            seq_of_train_y[i],
+            test_x=seq_of_test_x[0],
+            eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
+            update_freq=update_freq, temp=temp,
+            convergence_threshold=convergence_threshold,
+            str_output_fn=str_output_fn,
+            first_task=i == 0,
+            decay=decay,
+            minibatch=minibatch,
+            target_train_loss=target_train_loss)
 
-        samples_across_seq.append(train(network, seq_of_train_x[i],
-                                        seq_of_train_y[i],
-                                        test_x=seq_of_test_x[0],
-                                        eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
-                                        update_freq=update_freq, temp=temp,
-                                        convergence_threshold=convergence_threshold,
-                                        str_output_fn=str_output_fn,
-                                        first_task=i == 0,
-                                        decay=decay,
-                                        minibatch=minibatch,
-                                        target_train_loss=target_train_loss))
+        sampled_fn_on_train_list.append(fn_on_train)
+        sampled_fn_on_test_list.append(fn_on_test)
 
         for j in range(num_tasks):
             test_loss, test_acc = test(network, seq_of_test_x[j], seq_of_test_y[j])
@@ -237,4 +242,6 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y, se
             test_loss_matrix,
             train_acc_matrix,
             test_acc_matrix,
-            torch.stack(samples_across_seq).cpu().data)
+            torch.stack(sampled_fn_on_train_list).cpu().data,
+            torch.stack(sampled_fn_on_test_list).cpu().data
+            )

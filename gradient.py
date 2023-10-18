@@ -96,7 +96,8 @@ network = grad_utils.MLP(
 
 network = network.to(device)
 
-train_losses, test_losses, train_accs, test_accs, sampled_outputs =\
+(train_losses, test_losses, train_accs, test_accs,
+  sampled_fn_on_train, sampled_fn_on_test) =\
       grad_utils.train_on_sequence(
           network, seq_of_train_x, seq_of_test_x,
           seq_of_train_y, seq_of_test_y,
@@ -110,8 +111,8 @@ results['test acc'] = test_accs
 results['train acc'] = train_accs
 results['train loss'] = train_losses
 results['test loss'] = test_losses
-results['sampled outputs'] = sampled_outputs
-
+results['sampled fn on train'] = sampled_fn_on_train
+results['sampled fn on test'] = sampled_fn_on_test
 
 if ON_CLUSTER:
 
