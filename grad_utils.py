@@ -81,7 +81,8 @@ def langevin_step(model: MLP, train_x, train_y, lr, temp, l2, decay=0):
     return mse.data
 
 
-def train(network, train_x, train_y, test_x,
+def train(network, train_x, train_y,
+         train_x_for_sampling, test_x_for_sampling,
           n_steps=5000,
           eta=0.001,
           l2=1,
@@ -150,8 +151,8 @@ def train(network, train_x, train_y, test_x,
                           f' current l2 {l2}')
 
     str_output_fn(f'\n Training finished for one task. Final training loss {float(tr_loss):.3f}.')
-    fn_on_train = network(train_x)[:, 0]
-    fn_on_test = network(test_x)[:, 0]
+    fn_on_train = network(train_x_for_sampling)[:, 0]
+    fn_on_test = network(test_x_for_sampling)[:, 0]
 
     # compute total parameter change
     total_param_change_norm = torch.zeros(1)
@@ -210,7 +211,8 @@ def train_on_sequence(network, seq_of_train_x, seq_of_test_x, seq_of_train_y, se
         fn_on_train, fn_on_test = train(
             network, seq_of_train_x[i],
             seq_of_train_y[i],
-            test_x=seq_of_test_x[0],
+            train_x_for_sampling=seq_of_train_x[0],
+            test_x_for_sampling=seq_of_test_x[0],
             eta=learning_rate, n_steps=num_steps, l2=0 if i == 0 else l2,
             update_freq=update_freq, temp=temp,
             convergence_threshold=convergence_threshold,

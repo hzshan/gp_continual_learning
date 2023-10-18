@@ -31,8 +31,9 @@ args = configs.GradientDescentArgsParser().parse_args()
 
 run_name = f'{args.BATCH_NAME}_{args.TRIAL_IND}'
 
-logger = cluster_utils.Logger(output_path=f'{output_home_path}{args.BATCH_NAME}/',
-                              run_name=run_name, only_print=not ON_CLUSTER)
+logger = cluster_utils.Logger(
+    output_path=f'{output_home_path}{args.BATCH_NAME}/',
+    run_name=run_name, only_print=not ON_CLUSTER)
 
 # log some training parameters
 logger.log(str(args))
