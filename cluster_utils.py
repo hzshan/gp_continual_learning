@@ -70,7 +70,8 @@ class ClusterResultOrganizer:
                 try:
                     _obj = pickle.load(open(filepath + file, 'rb'))
                 except:
-                    raise RuntimeError(f'Loading {filepath + file} failed.')
+                    print(f'Loading {filepath + file} failed.')
+                    continue
                 self.file_name_list.append(file)
                 self.all_data_obj.append(_obj)
                 self.all_args.append(_obj['args'])
