@@ -111,6 +111,7 @@ if bool(args.save_outputs):
 trp1p2, v1v2_cos, v1v2_cos_ref = theory.compute_forgetting_ops(
     x1=seq_of_train_x[0], x2=seq_of_train_x[1],
     y1=seq_of_train_y[0], y2=seq_of_train_y[1],
+    depth=args.depth,
 )
 
 results['V1-V2'] = 2 - 2 * v1v2_cos
