@@ -24,5 +24,6 @@ python /n/home11/haozheshan/ContinualLearning2022/$script_name  \
 --lambda_val $lambda_val \
 --NSEEDS $NSEEDS \
 --N0context $N0context \
---context_strength $context_strength
+--context_strength $context_strength \
+--change_w_in_teachers $change_w_in_teachers \
 --cluster 1
