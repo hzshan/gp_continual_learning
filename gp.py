@@ -1,10 +1,8 @@
 """
 GP-limit continual learning theory for two-way classification problems.
 1. EVERY RANDOM SEED CORRESPONDS TO A NEW RANDOM DATA SAMPLE!!!
-To save compute, naive theory is always computed with a fixed kernel (INF LAMBDA)
 
 """
-LARGE_LAMBDA = False
 
 import numpy as np
 import theory, cluster_utils, data, torch, sys
@@ -25,6 +23,9 @@ parser.add('depth', 1,
            'setting depth=0 would use the input kernel')
 parser.add('seed', 0, help='random seed')
 parser.add('lambda_val', 1e5, help='lambda')
+parser.add('use_large_lambda_limit', 0,
+            help='whether to assume infinite lambda.'
+           'this makes calculations substantially faster.')
 parser.add('task_type', 'permuted', help='permuted/split')
 parser.add('naive_gp', 0, help='1/0')
 parser.add('dataset', 'mnist', help='mnist/cifar/fashion/cifar100')
@@ -87,7 +88,7 @@ training_predictions, test_predictions =\
         seq_of_train_x=seq_of_train_x, seq_of_train_y=seq_of_train_y,
         w_var=args.sigma**2,
         lambda_val=args.lambda_val, seq_of_test_x=seq_of_test_x,
-        large_lambda=LARGE_LAMBDA, depth=args.depth,
+        large_lambda=bool(args.use_large_lambda_limit), depth=args.depth,
         use_naive_gp=(bool(args.naive_gp)))
 
 (results['train loss'], results['test loss'],

@@ -14,6 +14,7 @@ python /n/home11/haozheshan/ContinualLearning2022/$script_name  \
 --P_test $P_test \
 --n_tasks $n_tasks \
 --lambda_val $lambda_val \
+--use_large_lambda_limit $use_large_lambda_limit \
 --permutation $permutation \
 --resample $resample \
 --T $T \
