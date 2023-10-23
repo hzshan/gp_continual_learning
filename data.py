@@ -314,19 +314,22 @@ def _pack_data(list_of_data_obs: list, precision=32):
 
 def _load_and_two_classify_dataset(dataset_name, data_path):
     """
-    Load a multiway classification dataset and split it into two classes according to the parity of the label index
+    Load a multiway classification dataset and split it into two classes
+    according to the parity of the label index
     """
     all_train_x, all_test_x, all_train_digits, all_test_digits = \
-    load_dataset(dataset_name=dataset_name, num_train=200000, num_test=200000, path=data_path)
-
-    N0 = all_train_x.shape[-1]
+    load_dataset(dataset_name=dataset_name,
+                 num_train=200000,
+                 num_test=200000,
+                 path=data_path)
 
     all_class_1_train_x = all_train_x[all_train_digits % 2 == 1]
     all_class_2_train_x = all_train_x[all_train_digits % 2 == 0]
     all_class_1_test_x = all_test_x[all_test_digits % 2 == 1]
     all_class_2_test_x = all_test_x[all_test_digits % 2 == 0]
 
-    return all_class_1_train_x, all_class_2_train_x, all_class_1_test_x, all_class_2_test_x
+    return (all_class_1_train_x, all_class_2_train_x,
+            all_class_1_test_x, all_class_2_test_x)
 
 
 def _generate_permuted_dataset_from_two_classes(all_class_1_train_x, all_class_2_train_x, all_class_1_test_x, all_class_2_test_x,
@@ -469,12 +472,22 @@ def prepare_split_dataset(train_p: int, test_p: int, dataset_name: str, data_pat
     all_train_x, all_test_x, all_train_digits, all_test_digits = \
         load_dataset(dataset_name=dataset_name, num_train=200000, num_test=200000, path=data_path)
 
-    return _generate_split_dataset_from_loaded_data(all_train_x, all_test_x, all_train_digits, all_test_digits, n_tasks, train_p, test_p, precision=precision)
+    return _generate_split_dataset_from_loaded_data(
+        all_train_x,
+        all_test_x,
+        all_train_digits,
+        all_test_digits,
+        n_tasks,
+        train_p,
+        test_p,
+        precision=precision)
 
-   
 
-
-def load_dataset(dataset_name: str, num_train: int, num_test: int, path=None):
+def load_dataset(dataset_name: str,
+                 num_train: int,
+                 num_test: int,
+                 path=None,
+                 mean_subtraction='image'):
     if path is None:
         path = '/Users/haozheshan/Dropbox/codes/gp_continual_learning/datasets'
 
@@ -510,17 +523,26 @@ def load_dataset(dataset_name: str, num_train: int, num_test: int, path=None):
     raw_test_data = next(iter(test_loader))
     
 
-    def _get_x_y(raw_data: tuple):
+    def _get_x_y(raw_data: tuple, mean_subtraction):
         x, y = raw_data
         x = x.reshape(x.shape[0], -1).float()
-        x -= torch.mean(x, dim=1).reshape(-1, 1)
+
+        assert mean_subtraction in ['image', 'batch']
+        if mean_subtraction == 'batch':
+            # subtract the mean pixel value across positions AND images
+            # each image would have a different mean
+            x -= x.mean()
+        else:
+            # subtract the mean pixel value across positions.
+            # each image would have zero mean
+            x -= torch.mean(x, dim=1).reshape(-1, 1)
         x /= torch.norm(x, dim=1).reshape(-1, 1) / math.sqrt(x.shape[1])
         y = y.float()
         return x, y
 
 
-    train_x, train_y = _get_x_y(raw_train_data)
-    test_x, test_y = _get_x_y(raw_test_data)
+    train_x, train_y = _get_x_y(raw_train_data, mean_subtraction)
+    test_x, test_y = _get_x_y(raw_test_data, mean_subtraction)
 
     # assert len(train_x) == num_train
     # assert len(test_x) == num_test
