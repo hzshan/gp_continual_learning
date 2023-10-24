@@ -26,4 +26,5 @@ python /n/home11/haozheshan/ContinualLearning2022/$script_name  \
 --N0context $N0context \
 --context_strength $context_strength \
 --change_w_in_teachers $change_w_in_teachers \
+--use_large_lambda_limit $use_large_lambda_limit \
 --cluster 1

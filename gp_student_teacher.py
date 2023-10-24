@@ -5,16 +5,18 @@ Continual learning theory using the student-teacher setup.
 2. Every job contains MULTIPLE random seeds. This streamlines the job submission process.
 """
 
-# if True, all prediction calculations assume the infinite lambda limit
-USE_LARGE_LAMBDA = False
-
 import numpy as np
 import theory, cluster_utils, data, torch, sys, configs
 
 ON_CLUSTER, data_path, output_home_path = cluster_utils.initialize()
 
 parser = configs.StudentTeacherArgsParser()
+parser.add('use_large_lambda_limit', 0,
+            help='whether to assume infinite lambda.'
+           'this makes calculations substantially faster.')
 args = parser.parse_args()
+
+large_lambda = bool(args.use_large_lambda_limit)
 
 args.tsim = float(args.tsim / 100)
 args.xsim = float(args.xsim / 100)
@@ -67,7 +69,7 @@ for seed in range(args.NSEEDS):
                                         w_var=args.sigma**2, 
                                         lambda_val=args.lambda_val,
                                         seq_of_test_x=seq_of_test_x,
-                                        large_lambda=USE_LARGE_LAMBDA,
+                                        large_lambda=large_lambda,
                                         depth=args.depth)
 
     training_predictions_naive, test_predictions_naive =\
@@ -76,7 +78,7 @@ for seed in range(args.NSEEDS):
                                         w_var=args.sigma**2, 
                                         lambda_val=args.lambda_val,
                                         seq_of_test_x=seq_of_test_x,
-                                        large_lambda=USE_LARGE_LAMBDA,
+                                        large_lambda=large_lambda,
                                         depth=args.depth,
                                         use_naive_gp=True)
 
