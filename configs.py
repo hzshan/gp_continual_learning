@@ -26,6 +26,8 @@ class StudentTeacherArgsParser(cluster_utils.Args):
                 help='magnifying factor for context embedding')
         self.add('change_w_in_teachers', 1.0,
                 help='whether to vary hidden layer weights of teacher NNs')
+        self.add('input_share_variability', 1.0,
+                help='whether clusters from different tasks share delX')
         
 
 class GradientDescentArgsParser(cluster_utils.Args):
