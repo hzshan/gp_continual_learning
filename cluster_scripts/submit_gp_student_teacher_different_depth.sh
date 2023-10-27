@@ -16,7 +16,7 @@ lambda_val=1000000
 context_strength=1.0
 change_w_in_teachers=0.0
 use_large_lambda_limit=1
-NSEEDS=100
+NSEEDS=30
 
 
 MEM_REQUEST=5000 # memory requested, in MB

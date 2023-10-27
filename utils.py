@@ -77,7 +77,7 @@ def sum_of_exp_fit(x, y, p0=[1, 10, 1, 10], plot_axis=None):
 
 
 def plot_and_exp_fit(series, fit=True,
-                     label=None, plot_axis=None, r_and_gain=True,
+                     label=None, plot_axis=None, r_and_gain=False,
                      plot_raw=False, **kwargs):
     xaxis = np.arange(len(series))
     if plot_raw:
