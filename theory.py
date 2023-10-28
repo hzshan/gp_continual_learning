@@ -351,7 +351,7 @@ def arccos_kernel_deep(x1, x2, depth, var1=1, var2=None, covar=None):
     if 1 < kappa < 1 + 1e-5:
         kappa = 1
         # kappa > 1 will cause problems below. Sometimes due to floating point problems kappa is slightly bigger than 1.
-    assert 0 < kappa <= 1, f"kappa computed is {kappa}. Needs to be between 0 and 1"
+    assert 0 <= kappa <= 1, f"kappa computed is {kappa}. Needs to be between 0 and 1"
     input_kernel = x1 @ x2.T / x1.shape[1]
     if depth == 0:
         return input_kernel
