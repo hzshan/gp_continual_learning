@@ -251,7 +251,7 @@ def prepare_cluster_dataset(num_tasks: int,
         _pack_data(all_y_test, precision)
 
 
-def get_loss_acc(tr_preds, te_preds, tr_y, te_y):
+def get_loss_acc(tr_preds, te_preds, tr_y, te_y, only_first_task=False):
     _n_tasks = len(tr_y)
     tr_loss = np.zeros((_n_tasks, _n_tasks))
     te_loss = np.zeros((_n_tasks, _n_tasks))
@@ -273,7 +273,11 @@ def get_loss_acc(tr_preds, te_preds, tr_y, te_y):
                 if te_preds is not None:
                     te_acc[_task_ind, _time_ind] = \
                         torch.mean((torch.sign(te_preds[_task_ind, _time_ind]) == te_y[_task_ind]).float())
-    return tr_loss, te_loss, tr_acc, te_acc
+    
+    if only_first_task:
+        return tr_loss[0], te_loss[0], tr_acc[0], te_acc[0]
+    else:
+        return tr_loss, te_loss, tr_acc, te_acc
 
 
 def digit_to_onehot(digit_target, num_classes=10):

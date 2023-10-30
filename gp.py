@@ -8,6 +8,8 @@ import numpy as np
 import theory, cluster_utils, data, torch, sys
 
 ON_CLUSTER, data_path, output_home_path = cluster_utils.initialize()
+ONLY_FIRST_TASK = True  # only save loss/accuracy of the first task across time
+# this is to reduce the size of the output file
 
 parser = cluster_utils.Args()
 parser.add('P', 500)  # size of each training set
@@ -96,10 +98,10 @@ training_predictions, test_predictions =\
     data.get_loss_acc(training_predictions,
                       test_predictions,
                       seq_of_train_y,
-                      seq_of_test_y)
+                      seq_of_test_y, only_first_task=ONLY_FIRST_TASK)
 
-results['train magnitude'] = np.linalg.norm(
-    training_predictions.squeeze(), axis=-1)**2 / args.P
+# results['train magnitude'] = np.linalg.norm(
+#     training_predictions.squeeze(), axis=-1)**2 / args.P
 
 
 if bool(args.save_outputs):
