@@ -78,10 +78,10 @@ def sum_of_exp_fit(x, y, p0=[1, 10, 1, 10], plot_axis=None):
 
 def plot_and_exp_fit(series, fit=True,
                      label=None, plot_axis=None, r_and_gain=False,
-                     plot_raw=False, **kwargs):
+                     plot_raw=False, alpha=1, **kwargs):
     xaxis = np.arange(len(series))
     if plot_raw:
-        plt.scatter(xaxis, series, s=1)
+        plt.scatter(xaxis, series, s=1, alpha=alpha,)
     if fit is True:
 
 
@@ -96,7 +96,7 @@ def plot_and_exp_fit(series, fit=True,
         pred = offset + (init_offset - offset) * np.exp(-xaxis / time_constant)
         if label is None:
             label = f'gain={gain:.3f} & rate={r:.3f} \n tau={time_constant:.3f} & asymp={offset:.3f}'
-        plt.plot(plot_axis, pred, label=label, **kwargs)
+        plt.plot(plot_axis, pred, label=label, alpha=alpha, **kwargs)
 
         if r_and_gain is True:
             fitted_param1 = r
