@@ -109,14 +109,23 @@ if bool(args.save_outputs):
     # save output on test set #1 across time
 
 # # compute some OPs for long-term behavior
-trp1p2, v1v2_cos, v1v2_cos_ref = theory.compute_forgetting_ops(
+trp1p2, v1v2_cos, _ = theory.compute_forgetting_ops(
     x1=seq_of_train_x[0], x2=seq_of_train_x[1],
     y1=seq_of_train_y[0], y2=seq_of_train_y[1],
     depth=args.depth,
 )
 
+trp1p2_ntk, v1v2_cos_ntk, _ = theory.compute_forgetting_ops(
+    x1=seq_of_train_x[0], x2=seq_of_train_x[1],
+    y1=seq_of_train_y[0], y2=seq_of_train_y[1],
+    depth=args.depth, use_ntk_kernel=True
+)
+
 results['V1-V2'] = 2 - 2 * v1v2_cos
 results['tr(P1P2)/P'] = trp1p2
+
+results['V1-V2 ntk'] = 2 - 2 * v1v2_cos_ntk
+results['tr(P1P2)/P ntk'] = trp1p2_ntk
 
 if ON_CLUSTER:
 
