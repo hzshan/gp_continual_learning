@@ -8,13 +8,14 @@ N0=100
 N0context=0
 Nh=100
 NC=50
-radius=0.0
-tsim=100  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
-xsim=80  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
+radius=0
+# tsim=100  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
+# xsim=80  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
 depth=1
 lambda_val=100000
 context_strength=1.0
 change_w_in_teachers=0.0
+input_share_variability=1.0
 use_large_lambda_limit=1
 NSEEDS=100
 
@@ -23,8 +24,7 @@ MEM_REQUEST=5000 # memory requested, in MB
 TIME_REQUEST=0-6:00
 PARTITION=shared
 
-
-batch_name=gp_toy_${n_tasks}x${P}_${depth}L_diff_tsim_and_xsim_0radius
+batch_name=gp_toy_${n_tasks}x${P}_${depth}L_diff_tsim_and_xsim_1cluster
 # batch_name=gp_toy_${n_tasks}x${P}_tsim${tsim}_xsim${xsim}_diff_depth_change_teacher_w
 # batch_name=gp_toy_${n_tasks}x${P}_tsim${tsim}_xsim${xsim}_diff_lambda
 
@@ -65,7 +65,8 @@ do
     echo $xsim
     export P P_test n_tasks T sigma N0 Nh NC radius tsim xsim N0context \
     depth seed lambda_val script_name trial_ind batch_name NSEEDS \
-    context_strength change_w_in_teachers use_large_lambda_limit
+    context_strength change_w_in_teachers use_large_lambda_limit \
+    input_share_variability
 
     sbatch --account=cox_lab --job-name=$batch_name --mem=$MEM_REQUEST -t $TIME_REQUEST -p $PARTITION\
     -o /n/home11/haozheshan/ContinualLearning2022/outputs/${batch_name}/run_message_${trial_ind}.txt\

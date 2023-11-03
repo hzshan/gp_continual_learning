@@ -39,6 +39,9 @@ parser.add('save_outputs', 0, help='1/0'
            ' takes up a lot of disk space')
 args = parser.parse_args()
 
+# log whether only saving first task performance
+args.only_first_task = ONLY_FIRST_TASK
+
 run_name = f'{args.BATCH_NAME}_{args.TRIAL_IND}'
 
 logger = cluster_utils.Logger(
@@ -48,7 +51,6 @@ logger = cluster_utils.Logger(
 
 logger.log(str(args))
 results = {'args': args}
-
 
 # Use the same seed for sampling the dataset etc.
 torch.manual_seed(args.seed)
@@ -99,6 +101,7 @@ training_predictions, test_predictions =\
                       test_predictions,
                       seq_of_train_y,
                       seq_of_test_y, only_first_task=ONLY_FIRST_TASK)
+
 
 # results['train magnitude'] = np.linalg.norm(
 #     training_predictions.squeeze(), axis=-1)**2 / args.P

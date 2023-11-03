@@ -1,7 +1,7 @@
 ## MAY 23: USING LARGE LAMBDA APPROXIMATIONS IN gp.py
 
 script_name=gp.py
-dataset='mnist'
+dataset='fashion'
 task_type='permuted'
 P=500
 P_test=50  # for cifar100 this can be at most 200
@@ -9,7 +9,7 @@ n_tasks=100
 T=0
 sigma=0.2
 resample=0
-permutation=0.25  # this argument is ignored for split tasks
+permutation=0.05  # this argument is ignored for split tasks
 lambda_val=1000000
 use_large_lambda_limit=1  # if 1, ignore lambda_val and assume large lambda
 naive_gp=0
@@ -22,7 +22,7 @@ MEM_REQUEST=8000 # memory requested, in MB
 TIME_REQUEST=0-1:30
 PARTITION=shared
 # batch_name=gp_${n_tasks}x${P}_${dataset}_${task_type}_${N0context}context_${depth}L_diff_strength
-batch_name=gp_${n_tasks}x${P}_${dataset}_${task_type}_diff_depth_quarter_permutation
+batch_name=gp_${n_tasks}x${P}_${dataset}_${task_type}_diff_depth_5pc_permutation
 #batch_name=cifar_debug2
 
 
