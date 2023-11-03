@@ -37,6 +37,7 @@ parser.add('context_strength', 1.0,
 parser.add('save_outputs', 0, help='1/0'
            '; decides whether or not to save predictions on datasets;'
            ' takes up a lot of disk space')
+parser.add('whiten', 0, help='1/0. Whether to whiten data first.')
 args = parser.parse_args()
 
 # log whether only saving first task performance
@@ -66,7 +67,8 @@ if args.task_type == 'permuted':
             resample=bool(args.resample),
             permutation=args.permutation,
             data_path=data_path,
-            precision=64)
+            precision=64,
+            whitening=args.whiten,)
 
 elif args.task_type == 'split':
     seq_of_train_x, seq_of_test_x, seq_of_train_y, seq_of_test_y = \
@@ -76,7 +78,8 @@ elif args.task_type == 'split':
             dataset_name=args.dataset,
             data_path=data_path,
             precision=64,
-            n_tasks=args.n_tasks)
+            n_tasks=args.n_tasks,
+            whitening=args.whiten,)
 else:
     raise ValueError(
         'task type not understood. Choose between "permuted" and "split"')

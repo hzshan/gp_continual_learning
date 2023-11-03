@@ -26,5 +26,6 @@ python /n/home11/haozheshan/ContinualLearning2022/$script_name  \
 --seed $seed \
 --N0context $N0context \
 --context_strength $context_strength \
+--whiten $whiten \
 --cluster 1 \
 --save_outputs $save_outputs

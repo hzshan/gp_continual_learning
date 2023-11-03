@@ -69,6 +69,7 @@ permutation=0.05
 depth=1
 naive_gp=0
 save_outputs=1
+whiten=0
 N0context=0
 context_strength=1.0
 
@@ -109,7 +110,7 @@ do
   echo $batch_name
 #  echo $P
   export P P_test n_tasks T sigma depth permutation\
-  script_name batch_name trial_ind lambda_val task_type dataset resample naive_gp save_outputs N0context context_strength
+  script_name batch_name trial_ind lambda_val task_type dataset resample naive_gp save_outputs N0context context_strength whiten
 
   for seed in $seeds
   do
