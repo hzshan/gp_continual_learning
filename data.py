@@ -316,7 +316,7 @@ def _pack_data(list_of_data_obs: list, precision=32):
         raise ValueError('Precision is not understood. Need to be 16/32/64')
     
 
-def _load_and_two_classify_dataset(dataset_name, data_path):
+def _load_and_two_classify_dataset(dataset_name, data_path, whitening):
     """
     Load a multiway classification dataset and split it into two classes
     according to the parity of the label index
@@ -325,7 +325,8 @@ def _load_and_two_classify_dataset(dataset_name, data_path):
     load_dataset(dataset_name=dataset_name,
                  num_train=200000,
                  num_test=200000,
-                 path=data_path)
+                 path=data_path,
+                 whitening=whitening)
 
     all_class_1_train_x = all_train_x[all_train_digits % 2 == 1]
     all_class_2_train_x = all_train_x[all_train_digits % 2 == 0]
@@ -392,7 +393,8 @@ def prepare_permuted_dataset(num_tasks: int,
                              data_path=None,
                              precision=32,
                              resample=True,
-                             permutation=1):
+                             permutation=1,
+                             whitening=False):
     """
     This prepares a binary permuted task. Odd vs even digits
     """
@@ -400,7 +402,8 @@ def prepare_permuted_dataset(num_tasks: int,
     (all_class_1_train_x,
     all_class_2_train_x,
     all_class_1_test_x,
-    all_class_2_test_x) = _load_and_two_classify_dataset(dataset_name, data_path)
+    all_class_2_test_x) = _load_and_two_classify_dataset(
+        dataset_name, data_path, whitening)
 
     return _generate_permuted_dataset_from_two_classes(all_class_1_train_x,
                                                        all_class_2_train_x,
@@ -466,7 +469,13 @@ def _generate_split_dataset_from_loaded_data(all_train_x,
            _pack_data(seq_of_train_y, precision), _pack_data(seq_of_test_y, precision)
 
 
-def prepare_split_dataset(train_p: int, test_p: int, dataset_name: str, data_path=None, precision=32, n_tasks=5):
+def prepare_split_dataset(train_p: int,
+                          test_p: int,
+                          dataset_name: str,
+                          data_path=None,
+                          precision=32,
+                          n_tasks=5,
+                          whitening=False):
     """
     The n_tasks parameter sets the maximum number of tasks to use. The other constraint is the number of classes in the
     full dataset. If there are K classes (e.g., K=100 for CIFAR-100), then at most one can make 50 split tasks.
@@ -474,7 +483,12 @@ def prepare_split_dataset(train_p: int, test_p: int, dataset_name: str, data_pat
 
     # load the entire dataset first
     all_train_x, all_test_x, all_train_digits, all_test_digits = \
-        load_dataset(dataset_name=dataset_name, num_train=200000, num_test=200000, path=data_path)
+        load_dataset(
+            dataset_name=dataset_name,
+            num_train=200000,
+            num_test=200000,
+            path=data_path,
+            whitening=whitening)
 
     return _generate_split_dataset_from_loaded_data(
         all_train_x,
@@ -487,11 +501,37 @@ def prepare_split_dataset(train_p: int, test_p: int, dataset_name: str, data_pat
         precision=precision)
 
 
+def whiten(input_arr, epsilon=0):
+    """
+    Compute and apply a N0-by-N0 whitening matrix to the input array.
+
+    Args:
+        input_arr: an numpy array or torch tensor of shape P-by-N0,
+        where P is the number of samples.
+        epsilon: regularization parameter for the covariance matrix.
+    
+    Return:
+        whitened input array, and the whitening matrix.
+    """
+    if input_arr.dtype in [np.float32, np.float64]:
+        cov = np.cov(input_arr.T)
+        u, s, _ = np.linalg.svd(cov)
+        whiten_mat = u @ np.diag((s + epsilon)**-0.5) @ u.T
+        return (input_arr @ whiten_mat), whiten_mat
+    else:
+        # if not a numpy array, try torch
+        cov = torch.cov(input_arr.T)
+        u, s, _ = torch.svd(cov)
+        whiten_mat = u @ torch.diag((s + epsilon)**-0.5) @ u.T
+        return (input_arr @ whiten_mat), whiten_mat
+
+
 def load_dataset(dataset_name: str,
                  num_train: int,
                  num_test: int,
                  path=None,
-                 mean_subtraction='image'):
+                 mean_subtraction='image',
+                 whitening=False):
     if path is None:
         path = '/Users/haozheshan/Dropbox/codes/gp_continual_learning/datasets'
 
@@ -540,15 +580,16 @@ def load_dataset(dataset_name: str,
             # subtract the mean pixel value across positions.
             # each image would have zero mean
             x -= torch.mean(x, dim=1).reshape(-1, 1)
-        x /= torch.norm(x, dim=1).reshape(-1, 1) / math.sqrt(x.shape[1])
         y = y.float()
         return x, y
-
 
     train_x, train_y = _get_x_y(raw_train_data, mean_subtraction)
     test_x, test_y = _get_x_y(raw_test_data, mean_subtraction)
 
-    # assert len(train_x) == num_train
-    # assert len(test_x) == num_test
+    if whitening:
+        train_x, whitened_mat = whiten(train_x)
+        test_x = test_x @ whitened_mat
+    train_x = utils.normalize_input(train_x)
+    test_x = utils.normalize_input(test_x)
 
     return train_x, test_x, train_y, test_y
