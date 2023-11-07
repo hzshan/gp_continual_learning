@@ -4,12 +4,15 @@ GP-limit continual learning theory for two-way classification problems.
 
 """
 
+# only save loss/accuracy of the first task across time
+# this is to reduce the size of the output file
+ONLY_FIRST_TASK = True
+
+
 import numpy as np
 import theory, cluster_utils, data, torch, sys
 
 ON_CLUSTER, data_path, output_home_path = cluster_utils.initialize()
-ONLY_FIRST_TASK = True  # only save loss/accuracy of the first task across time
-# this is to reduce the size of the output file
 
 parser = cluster_utils.Args()
 parser.add('P', 500)  # size of each training set
