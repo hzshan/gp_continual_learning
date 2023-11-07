@@ -408,7 +408,8 @@ def _generate_split_dataset_from_loaded_data(all_train_x,
                                             all_test_x,
                                             all_train_digits,
                                             all_test_digits,
-                                            n_tasks, train_p,
+                                            n_tasks,
+                                            train_p,
                                             test_p,
                                             precision=64):
 
