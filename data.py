@@ -314,31 +314,16 @@ def _pack_data(list_of_data_obs: list, precision=32):
         return torch.stack(list_of_data_obs).double()
     else:
         raise ValueError('Precision is not understood. Need to be 16/32/64')
+
+
+def _generate_permuted_dataset_from_loaded_data(
+        all_train_x, all_test_x, all_train_digits, all_test_digits,
+        permutation, num_tasks, train_p, test_p, resample=False, precision=64):
     
-
-def _load_and_two_classify_dataset(dataset_name, data_path, whitening):
-    """
-    Load a multiway classification dataset and split it into two classes
-    according to the parity of the label index
-    """
-    all_train_x, all_test_x, all_train_digits, all_test_digits = \
-    load_dataset(dataset_name=dataset_name,
-                 num_train=200000,
-                 num_test=200000,
-                 path=data_path,
-                 whitening=whitening)
-
     all_class_1_train_x = all_train_x[all_train_digits % 2 == 1]
     all_class_2_train_x = all_train_x[all_train_digits % 2 == 0]
     all_class_1_test_x = all_test_x[all_test_digits % 2 == 1]
     all_class_2_test_x = all_test_x[all_test_digits % 2 == 0]
-
-    return (all_class_1_train_x, all_class_2_train_x,
-            all_class_1_test_x, all_class_2_test_x)
-
-
-def _generate_permuted_dataset_from_two_classes(all_class_1_train_x, all_class_2_train_x, all_class_1_test_x, all_class_2_test_x,
-                                                 permutation, num_tasks, train_p, test_p, resample=False, precision=64):
     seq_of_train_x = []
     seq_of_test_x = []
     seq_of_train_y = []
@@ -399,16 +384,18 @@ def prepare_permuted_dataset(num_tasks: int,
     This prepares a binary permuted task. Odd vs even digits
     """
 
-    (all_class_1_train_x,
-    all_class_2_train_x,
-    all_class_1_test_x,
-    all_class_2_test_x) = _load_and_two_classify_dataset(
-        dataset_name, data_path, whitening)
+    all_train_x, all_test_x, all_train_digits, all_test_digits = \
+        load_dataset(
+            dataset_name=dataset_name,
+            num_train=200000,
+            num_test=200000,
+            path=data_path,
+            whitening=whitening)
 
-    return _generate_permuted_dataset_from_two_classes(all_class_1_train_x,
-                                                       all_class_2_train_x,
-                                                       all_class_1_test_x,
-                                                       all_class_2_test_x,
+    return _generate_permuted_dataset_from_loaded_data(all_train_x,
+                                                       all_test_x,
+                                                       all_train_digits,
+                                                       all_test_digits,
                                                        permutation=permutation,
                                                        num_tasks=num_tasks,
                                                        train_p=train_p,
@@ -433,10 +420,11 @@ def _generate_split_dataset_from_loaded_data(all_train_x,
     total_num_class = len(np.unique(all_test_digits))
     num_tasks = np.min([int(total_num_class / 2), n_tasks])
 
-    # this determines the order of the tasks. the first two inds are the first task, second two are the second task etc.
+    # this determines the order of the tasks. the first two inds are the first
+    # task, second two are the second task etc.
+
     task_order = torch.arange(total_num_class)
     task_order = task_order[torch.randperm(len(task_order))]
-    # print(task_order)
 
     for task_ind in range(num_tasks):
         # select train/test x with a certain label
@@ -445,20 +433,32 @@ def _generate_split_dataset_from_loaded_data(all_train_x,
         p_digit_train = int(train_p / 2)
         p_digit_test = int(test_p / 2)
 
-        class1_train_x = all_train_x[all_train_digits == task_order[task_ind * 2]][:p_digit_train]
-        class2_train_x = all_train_x[all_train_digits == task_order[task_ind * 2 + 1]][:p_digit_train]
-        class1_test_x = all_test_x[all_test_digits == task_order[task_ind * 2]][:p_digit_test]
-        class2_test_x = all_test_x[all_test_digits == task_order[task_ind * 2 + 1]][:p_digit_test]
+        class1_train_x = all_train_x[
+            all_train_digits == task_order[task_ind * 2]][:p_digit_train]
+        class2_train_x = all_train_x[
+            all_train_digits == task_order[task_ind * 2 + 1]][:p_digit_train]
+        class1_test_x = all_test_x[
+            all_test_digits == task_order[task_ind * 2]][:p_digit_test]
+        class2_test_x = all_test_x[
+            all_test_digits == task_order[task_ind * 2 + 1]][:p_digit_test]
 
-        assert class1_train_x.shape[0] == p_digit_train, f'{class1_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
-        assert class2_train_x.shape[0] == p_digit_train, f'{class2_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
-        assert class1_test_x.shape[0] == p_digit_test, f'{class1_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
-        assert class2_test_x.shape[0] == p_digit_test, f'{class2_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
+        assert class1_train_x.shape[0] == p_digit_train, \
+              f'{class1_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
+        assert class2_train_x.shape[0] == p_digit_train, \
+            f'{class2_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
+        assert class1_test_x.shape[0] == p_digit_test, \
+            f'{class1_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
+        assert class2_test_x.shape[0] == p_digit_test, \
+            f'{class2_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
 
-        fused_train_x = utils.normalize_input(torch.vstack((class1_train_x, class2_train_x)))
-        fused_test_x = utils.normalize_input(torch.vstack((class1_test_x, class2_test_x)))
-        train_y = torch.vstack((torch.ones((p_digit_train, 1)), torch.ones((p_digit_train, 1)) * -1))
-        test_y = torch.vstack((torch.ones((p_digit_test, 1)), torch.ones((p_digit_test, 1)) * -1))
+        fused_train_x = utils.normalize_input(
+            torch.vstack((class1_train_x, class2_train_x)))
+        fused_test_x = utils.normalize_input(
+            torch.vstack((class1_test_x, class2_test_x)))
+        train_y = torch.vstack((torch.ones((p_digit_train, 1)),
+                                 torch.ones((p_digit_train, 1)) * -1))
+        test_y = torch.vstack((torch.ones((p_digit_test, 1)),
+                                torch.ones((p_digit_test, 1)) * -1))
 
         seq_of_train_x.append(fused_train_x)
         seq_of_test_x.append(fused_test_x)
