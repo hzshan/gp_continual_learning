@@ -536,7 +536,9 @@ def load_dataset(dataset_name: str,
     if path is None:
         path = '/Users/haozheshan/Dropbox/codes/gp_continual_learning/datasets'
 
-    assert dataset_name in ['cifar', 'mnist', 'fashion', 'cifar100', 'emnist'],\
+    assert dataset_name in [
+        'cifar', 'mnist', 'fashion', 'cifar100', 'emnist', 'cifar_gray',
+        'cifar100_gray'],\
           'dataset name not understood'
 
     train_set = None
@@ -545,10 +547,10 @@ def load_dataset(dataset_name: str,
     trans = transforms.Compose([transforms.PILToTensor(),
                         transforms.ConvertImageDtype(torch.float64)])
 
-    if dataset_name == 'cifar':
+    if dataset_name in ['cifar', 'cifar_gray']:
         train_set = torchvision.datasets.CIFAR10(path, train=True, download=False, transform=trans)
         test_set = torchvision.datasets.CIFAR10(path, train=False, download=False, transform=trans)
-    elif dataset_name == 'cifar100':
+    elif dataset_name in ['cifar100', 'cifar100_gray']:
         train_set = torchvision.datasets.CIFAR100(path, train=True, download=True, transform=trans)
         test_set = torchvision.datasets.CIFAR100(path, train=False, download=True, transform=trans)
     elif dataset_name == 'mnist':
@@ -587,10 +589,22 @@ def load_dataset(dataset_name: str,
     train_x, train_y = _get_x_y(raw_train_data, mean_subtraction)
     test_x, test_y = _get_x_y(raw_test_data, mean_subtraction)
 
+    if 'gray' in dataset_name:
+        assert dataset_name in ['cifar_gray', 'cifar100_gray']
+        # convert RGB to grayscale
+        train_x = train_x.reshape(-1, 3, 1024).mean(1)
+        test_x = test_x.reshape(-1, 3, 1024).mean(1)
+
     if whitening:
         train_x, whitened_mat = whiten(train_x)
         test_x = test_x @ whitened_mat
-    train_x = utils.normalize_input(train_x)
-    test_x = utils.normalize_input(test_x)
 
-    return train_x, test_x, train_y, test_y
+    # try to remove duplicate images by removing ones with the same norm
+    _, unique_train_inds = np.unique(torch.norm(train_x, dim=1),
+                                     return_index=True)
+    _, unique_test_inds = np.unique(torch.norm(test_x, dim=1),
+                                    return_index=True)
+    train_x = utils.normalize_input(train_x[unique_train_inds])
+    test_x = utils.normalize_input(test_x[unique_test_inds])
+
+    return train_x, test_x, train_y[unique_train_inds], test_y[unique_test_inds]
