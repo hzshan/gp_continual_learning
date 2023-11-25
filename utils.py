@@ -112,7 +112,8 @@ def plot_and_exp_fit(series, fit=True,
     return fitted_param1, fitted_param2, pred
 
 
-
+def shuffle_along_first_axis(torch_tensor):
+    return torch_tensor[torch.randperm(torch_tensor.shape[0])]
 
 
 def normalize_input(input_arr):
