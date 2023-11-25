@@ -36,7 +36,7 @@ def initialize():
 
 
 class ClusterResultOrganizer:
-    def __init__(self, local_path, batch_name, sort_by_key=None, order_by_seed_number=False):
+    def __init__(self, local_path, batch_name, sort_by_key=None, order_by_seed_number=False, verbose=True):
         # self.sorted_data_obj = {}
         # self.sorted_seed_numbers = {}
         self.all_args = []
@@ -50,8 +50,10 @@ class ClusterResultOrganizer:
         self.order_by_seed_number = order_by_seed_number  # whether to order the rows of each data matrix by the seed number used
         self.file_name_list = []
         self.file_path = None
+        self.verbose = verbose
         self.load_all()
-        print('Available data keys are ' + str(self.all_data_obj[0].keys()))
+        if self.verbose:
+            print('Available data keys are ' + str(self.all_data_obj[0].keys()))
         
     def print_args(self):
         assert self.args is not None, 'No args found.'
@@ -105,7 +107,7 @@ class ClusterResultOrganizer:
             if vars(_args)[self.sort_by_key] not in values_for_sort_by_key:
                 values_for_sort_by_key.append(vars(_args)[self.sort_by_key])
         sort_by_key_message = (f'For key <<{self.sort_by_key}>>,'
-        'the values are {values_for_sort_by_key}')
+        f'the values are {values_for_sort_by_key}')
         
         if 'NSEEDS' in vars(self.args).keys():
             self.multiseed = True
@@ -117,7 +119,8 @@ class ClusterResultOrganizer:
             print(f'{len(self.all_data_obj)} data objects loaded from folder "{self.batch_name}".')
         else:
             print(f'!!!!! No data file was found !!!!!')
-        print(sort_by_key_message)
+        if self.verbose:
+            print(sort_by_key_message)
         print('=================== Cluster organizer ===================')
 
     def organize_results(self, value_key, as_arrays=False):
