@@ -320,10 +320,15 @@ def _generate_permuted_dataset_from_loaded_data(
         all_train_x, all_test_x, all_train_digits, all_test_digits,
         permutation, num_tasks, train_p, test_p, resample=False, precision=64):
     
-    all_class_1_train_x = all_train_x[all_train_digits % 2 == 1]
-    all_class_2_train_x = all_train_x[all_train_digits % 2 == 0]
-    all_class_1_test_x = all_test_x[all_test_digits % 2 == 1]
-    all_class_2_test_x = all_test_x[all_test_digits % 2 == 0]
+    all_class_1_train_x = utils.shuffle_along_first_axis(
+        all_train_x[all_train_digits % 2 == 1])
+    all_class_2_train_x = utils.shuffle_along_first_axis(
+        all_train_x[all_train_digits % 2 == 0])
+    all_class_1_test_x = utils.shuffle_along_first_axis(
+        all_test_x[all_test_digits % 2 == 1])
+    all_class_2_test_x = utils.shuffle_along_first_axis(
+        all_test_x[all_test_digits % 2 == 0])
+
     seq_of_train_x = []
     seq_of_test_x = []
     seq_of_train_y = []
@@ -370,6 +375,63 @@ def _generate_permuted_dataset_from_loaded_data(
     return _pack_data(seq_of_train_x, precision), _pack_data(seq_of_test_x, precision), \
            _pack_data(seq_of_train_y, precision), _pack_data(seq_of_test_y, precision)
 
+
+def prepare_dataset(num_tasks: int,
+                    train_p: int,
+                    test_p: int,
+                    dataset_name: str,
+                    task_type: str,
+                    data_path=None,
+                    precision=32,
+                    whitening=False,
+                    perm_resample=True,
+                    permutation=1):
+    ''' Simple wrapper to simply real data preparation code.
+    
+    Args:
+    num_tasks:    number of tasks. Can be as many as desired for permuted;
+                  for split, it's at most the number of classes // 2.
+    train_p:      number of training samples per task.
+    test_p:       number of test samples per task.
+    dataset_name: name of the dataset. Can be 'mnist', 'fashion', 'cifar',
+                  'cifar100', 'emnist', 'cifar_gray', 'cifar100_gray'. '_gray'
+                  means different color channels are averaged to make grayscale
+                  images.
+    task_type:    'split' or 'permuted'.
+    
+    '''
+
+    all_train_x, all_test_x, all_train_digits, all_test_digits = \
+        load_dataset(
+            dataset_name=dataset_name,
+            num_train=200000,
+            num_test=200000,
+            path=data_path,
+            whitening=whitening)
+
+    assert task_type in ['split', 'permuted'], 'task type not understood'
+    if task_type == 'split':
+        return _generate_split_dataset_from_loaded_data(
+            all_train_x,
+            all_test_x,
+            all_train_digits,
+            all_test_digits,
+            num_tasks,
+            train_p,
+            test_p,
+            precision=precision)
+    else:
+        return _generate_permuted_dataset_from_loaded_data(
+            all_train_x,
+            all_test_x,
+            all_train_digits,
+            all_test_digits,
+            permutation=permutation,
+            num_tasks=num_tasks,
+            train_p=train_p,
+            test_p=test_p,
+            resample=perm_resample,
+            precision=precision)
 
 def prepare_permuted_dataset(num_tasks: int,
                              train_p: int,
@@ -589,6 +651,15 @@ def load_dataset(dataset_name: str,
     train_x, train_y = _get_x_y(raw_train_data, mean_subtraction)
     test_x, test_y = _get_x_y(raw_test_data, mean_subtraction)
 
+    # try to remove duplicate images by removing ones with the same norm
+    _, unique_train_inds = np.unique(torch.norm(train_x, dim=1),
+                                     return_index=True)
+    _, unique_test_inds = np.unique(torch.norm(test_x, dim=1),
+                                    return_index=True)
+
+    train_x = utils.normalize_input(train_x[unique_train_inds])
+    test_x = utils.normalize_input(test_x[unique_test_inds])
+
     if 'gray' in dataset_name:
         assert dataset_name in ['cifar_gray', 'cifar100_gray']
         # convert RGB to grayscale
@@ -598,13 +669,5 @@ def load_dataset(dataset_name: str,
     if whitening:
         train_x, whitened_mat = whiten(train_x)
         test_x = test_x @ whitened_mat
-
-    # try to remove duplicate images by removing ones with the same norm
-    _, unique_train_inds = np.unique(torch.norm(train_x, dim=1),
-                                     return_index=True)
-    _, unique_test_inds = np.unique(torch.norm(test_x, dim=1),
-                                    return_index=True)
-    train_x = utils.normalize_input(train_x[unique_train_inds])
-    test_x = utils.normalize_input(test_x[unique_test_inds])
 
     return train_x, test_x, train_y[unique_train_inds], test_y[unique_test_inds]
