@@ -472,3 +472,13 @@ def compute_forgetting_ops(x1, x2, y1, y2, depth, use_ntk_kernel=False):
     v1v2_cos_ref = v1v2_ref / np.sqrt(v1_ref_norm_sq * v2_ref_norm_sq)
 
     return trp1p2, v1v2_cos, v1v2_cos_ref
+
+
+def get_gp_overlap(x1, x2, depth, epsilon=0):
+    assert x1.shape == x2.shape
+    P = x1.shape[0]
+    K1 = arccos_kernel_deep(x1, x1, depth=depth)
+    K2 = arccos_kernel_deep(x2, x2, depth=depth)
+    K12 = arccos_kernel_deep(x1, x2, depth=depth)
+    return torch.trace(torch.inverse(K1 + epsilon * torch.eye(P)) @ K12 @ \
+                                        torch.inverse(K2 + epsilon * torch.eye(P)) @ K12.T) / P
