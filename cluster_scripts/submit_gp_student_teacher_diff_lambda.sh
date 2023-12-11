@@ -9,13 +9,14 @@ N0context=0
 Nh=100
 NC=1
 radius=0.1
-tsim=100  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
+tsim=75  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
 xsim=90  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
 depth=1
 lambda_val=100000
+use_large_lambda_limit=0
+
 context_strength=1.0
 change_w_in_teachers=0.0
-use_large_lambda_limit=0
 input_share_variability=0  # this needs to be 0 if testing generalization
 NSEEDS=30
 

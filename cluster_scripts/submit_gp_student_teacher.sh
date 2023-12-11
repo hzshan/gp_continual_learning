@@ -1,5 +1,5 @@
 script_name=gp_student_teacher.py
-P=50
+P=100
 P_test=100 #default 500
 n_tasks=30
 T=0
@@ -7,12 +7,12 @@ sigma=0.2
 N0=100
 N0context=0
 Nh=100
-NC=50
+NC=100
 radius=0
 # tsim=100  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
 # xsim=80  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
 depth=1
-lambda_val=100000
+lambda_val=1000000
 context_strength=1.0
 change_w_in_teachers=0.0
 input_share_variability=1.0
@@ -24,7 +24,7 @@ MEM_REQUEST=5000 # memory requested, in MB
 TIME_REQUEST=0-6:00
 PARTITION=shared
 
-batch_name=gp_toy_${n_tasks}x${P}_${depth}L_diff_tsim_and_xsim_1cluster
+batch_name=gp_toy_${n_tasks}x${P}_${depth}L_diff_tsim_and_xsim_0radius
 # batch_name=gp_toy_${n_tasks}x${P}_tsim${tsim}_xsim${xsim}_diff_depth_change_teacher_w
 # batch_name=gp_toy_${n_tasks}x${P}_tsim${tsim}_xsim${xsim}_diff_lambda
 
