@@ -10,7 +10,7 @@ ONLY_FIRST_TASK = True
 
 
 import numpy as np
-import theory, cluster_utils, data, torch, sys, utils
+import theory, cluster_utils, data, torch, sys
 
 ON_CLUSTER, data_path, output_home_path = cluster_utils.initialize()
 
@@ -82,18 +82,7 @@ elif args.task_type == 'split':
             data_path=data_path,
             precision=64,
             n_tasks=args.n_tasks,
-            whitening=False,)  # whitening is handled below
-
-    if bool(args.whiten):
-        seq_of_train_x = seq_of_train_x.reshape(args.n_tasks * args.P, -1)
-        seq_of_test_x = seq_of_test_x.reshape(args.n_tasks * args.P_test, -1)
-        combined = torch.cat((seq_of_train_x, seq_of_test_x), dim=0)
-        combined, _ = data.whiten(combined)
-        combined = utils.normalize_input(combined)
-        seq_of_train_x = combined[:args.n_tasks * args.P].reshape(
-            args.n_tasks, args.P, -1)
-        seq_of_test_x = combined[args.n_tasks * args.P:].reshape(
-            args.n_tasks, args.P_test, -1)
+            whitening=args.whiten,)
 else:
     raise ValueError(
         'task type not understood. Choose between "permuted" and "split"')
