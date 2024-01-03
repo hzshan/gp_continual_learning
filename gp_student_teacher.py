@@ -41,7 +41,11 @@ for seed in range(args.NSEEDS):
     logger.log(f'starting random seed #{seed}')
     torch.manual_seed(seed)
 
-    seq_of_train_x, seq_of_test_x, seq_of_train_y, seq_of_test_y =\
+    (seq_of_train_x,  # T x P x N0
+     seq_of_test_x,  # T x P_test x N0
+     seq_of_train_y, # T x P x 1
+     seq_of_test_y,  # T x P_test x 1
+     ) =\
         data.prepare_cluster_dataset(
             num_tasks=args.n_tasks,
             train_p=args.P,
