@@ -53,8 +53,6 @@
 #  done
 # done
 
-# !!!!!! SAVING NN OUTPUTS. Check gp.py (MAY 2, 2023)
-
 script_name=gp.py
 dataset='emnist'
 task_type='permuted'
