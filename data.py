@@ -52,10 +52,16 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
 
     def _generate_centers(n_cluster, n0, n_train_per_cluster,
                           n_test_per_cluster, rel_radius):
-        centers = torch.normal(torch.zeros((n_cluster, n0)))
-        return centers.repeat(n_train_per_cluster, 1) * np.sqrt(1 - rel_radius), \
-            centers.repeat(n_test_per_cluster, 1) * np.sqrt(1 - rel_radius)
+        # cluster centers have STD = sqrt(1 - rel_radius)
+        centers = torch.normal(torch.zeros((n_cluster, n0)),
+                               std=np.sqrt(1 - rel_radius))
+        
+        # the same centers are repeated for training and test sets. the 
+        # number of repeats is the number of examples per cluster
+        return centers.repeat(n_train_per_cluster, 1), \
+            centers.repeat(n_test_per_cluster, 1)
 
+    
     ref_tr_center, ref_te_center =\
         _generate_centers(n_cluster=num_cluster, n0=input_dim,
                           n_train_per_cluster=num_train_per_cluster,
