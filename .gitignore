@@ -6,3 +6,5 @@ figures/
 .idea/
 .DS_Store
 notebooks/
+.DS_Store
+student_teacher_gammao_tau.pkl
