@@ -48,7 +48,28 @@ def add_task_embedding(seq_of_train_x, seq_of_test_x, embedding_dim, strength=10
 def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
                         num_cluster, relative_radius, input_dim,
                         num_datasets, input_similarity,
-                        share_variability=True):
+                        share_variability=True, train_data_has_var=True):
+    """
+    Generated clustered data for the template model. 
+
+    Terminology: each "cluster" refers to a Gaussian centered on one template
+    Args:
+        num_train_per_cluster: number of training samples per cluster.
+        num_test_per_cluster: number of test samples per cluster.
+        num_cluster: number of clusters.
+        relative_radius: radius of each cluster relative to the distance between cluster centers.
+        input_dim: dimension of input (N0).
+        num_datasets: number of datasets to generate.
+        input_similarity: pearson correlation between cluster centers in different datasets.
+        share_variability: whether to share the deviations from cluster centers across datasets.
+        train_data_has_var: whether to add deviations from cluster centers to training data.
+    """
+    
+    # check whether training data are sampled around the mean, or they are the
+    # mean. If they are the mean, then num_train_per_cluster should be 1. 
+    if train_data_has_var is False:
+        assert num_train_per_cluster == 1, \
+        'If variability_of_train_data is False, num_train_per_cluster must be 1.'
 
     def _generate_centers(n_cluster, n0, n_train_per_cluster,
                           n_test_per_cluster, rel_radius):
@@ -100,10 +121,15 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
                               n_test_per_cluster=num_test_per_cluster,
                               rel_radius=relative_radius)
 
-        tr_center = np.sqrt(input_similarity) * ref_tr_center + np.sqrt(1 - input_similarity) * del_tr_center
-        te_center = np.sqrt(input_similarity) * ref_te_center + np.sqrt(1 - input_similarity) * del_te_center
+        tr_center = (np.sqrt(input_similarity) * ref_tr_center +
+                      np.sqrt(1 - input_similarity) * del_tr_center)
+        te_center = (np.sqrt(input_similarity) * ref_te_center + 
+                     np.sqrt(1 - input_similarity) * del_te_center)
 
-        train_datasets.append(tr_center + deviations_from_center_tr)
+        if train_data_has_var:
+            train_datasets.append(tr_center + deviations_from_center_tr)
+        else:
+            train_datasets.append(tr_center)
         test_datasets.append(te_center + deviations_from_center_te)
 
     train_datasets = [utils.normalize_input(x) for x in train_datasets]
@@ -195,7 +221,8 @@ def prepare_cluster_dataset(num_tasks: int,
                             precision=64,
                             device=None,
                             input_share_variability=True,
-                            teacher_change_weights=False):
+                            teacher_change_weights=False,
+                            train_data_has_var=True):
     """Generate toy datasets and teacher-generated labels.
 
     Each dataset has several Gaussian clusters.
@@ -216,7 +243,12 @@ def prepare_cluster_dataset(num_tasks: int,
     device: torch device.
     input_share_variability: whether to share the deviations from cluster centers across datasets.
     teacher_change_weights: whether to change the weights of the hidden layer across teachers.
+    train_data_has_var: whether to add deviations from cluster centers to training data.
     """
+    if train_data_has_var is False:
+        assert train_p == num_clusters, \
+        'If variability_of_train_data is False, num_train_per_cluster must be 1.'
+
     all_x_train, all_x_test = get_clustered_input(
         num_train_per_cluster=int(np.ceil(train_p / num_clusters)),
         num_test_per_cluster=int(np.ceil(test_p / num_clusters)),
@@ -225,7 +257,8 @@ def prepare_cluster_dataset(num_tasks: int,
         input_dim=input_dim,
         num_datasets=num_tasks,
         input_similarity=input_similarity,
-        share_variability=input_share_variability)
+        share_variability=input_share_variability,
+        train_data_has_var=train_data_has_var)
 
     if device is not None:
         all_x_train = [x.to(device) for x in all_x_train]
