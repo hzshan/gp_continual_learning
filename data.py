@@ -57,7 +57,6 @@ def add_task_embedding(seq_of_train_x, seq_of_test_x, embedding_dim, strength=10
 def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
                         num_cluster, relative_radius, input_dim,
                         num_datasets, input_similarity,
-                        share_variability=True,
                         train_data_has_var=True,
                         accumulate_changes=False):
     """
@@ -72,13 +71,10 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
         input_dim: dimension of input (N0).
         num_datasets: number of datasets to generate.
         input_similarity: pearson correlation between cluster centers in different datasets.
-        share_variability: whether to share the deviations from cluster centers across datasets.
         train_data_has_var: whether to add deviations from cluster centers to training data.
         accumulate_changes: if true, similarity describes relation between first and last task. 
     """
-    
-    if share_variability:
-        raise DeprecationWarning('share_variability is deprecated. Will be removed in future commits.')
+
     # check whether training data are sampled around the mean, or they are the
     # mean. If they are the mean, then num_train_per_cluster should be 1. 
     if train_data_has_var is False:
@@ -239,7 +235,6 @@ def prepare_cluster_dataset(num_tasks: int,
                             accumulate: False,
                             precision=64,
                             device=None,
-                            input_share_variability=True,
                             teacher_change_weights=False,
                             train_data_has_var=True):
     """Generate toy datasets and teacher-generated labels.
@@ -260,7 +255,6 @@ def prepare_cluster_dataset(num_tasks: int,
     accumulate: whether to accumulate changes in parameters across teachers.
     precision: precision of floating point numbers.
     device: torch device.
-    input_share_variability: whether to share the deviations from cluster centers across datasets.
     teacher_change_weights: whether to change the weights of the hidden layer across teachers.
     train_data_has_var: whether to add deviations from cluster centers to training data.
     """
@@ -276,7 +270,6 @@ def prepare_cluster_dataset(num_tasks: int,
         input_dim=input_dim,
         num_datasets=num_tasks,
         input_similarity=input_similarity,
-        share_variability=input_share_variability,
         train_data_has_var=train_data_has_var,
         accumulate_changes=accumulate)
 

@@ -17,7 +17,6 @@ use_large_lambda_limit=1  # this ignores lambda_val and assumes inf lambda
 
 context_strength=1.0
 change_w_in_teachers=0.0
-input_share_variability=0  # this needs to be 0 if testing generalization
 NSEEDS=100
 
 
@@ -41,8 +40,7 @@ do
   echo $xsim
   export P P_test n_tasks T sigma N0 Nh NC radius tsim xsim N0context \
   depth seed lambda_val script_name trial_ind batch_name NSEEDS \
-  context_strength change_w_in_teachers use_large_lambda_limit \
-  input_share_variability
+  context_strength change_w_in_teachers use_large_lambda_limit
 
   sbatch --account=cox_lab --job-name=$batch_name --mem=$MEM_REQUEST -t $TIME_REQUEST -p $PARTITION\
   -o /n/home11/haozheshan/ContinualLearning2022/outputs/${batch_name}/run_message_${trial_ind}.txt\

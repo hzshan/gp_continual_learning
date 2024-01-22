@@ -15,7 +15,6 @@ depth=1
 lambda_val=1000000
 context_strength=1.0
 change_w_in_teachers=0.0
-input_share_variability=1.0
 use_large_lambda_limit=1
 NSEEDS=100
 
@@ -66,7 +65,6 @@ do
     export P P_test n_tasks T sigma N0 Nh NC radius tsim xsim N0context \
     depth seed lambda_val script_name trial_ind batch_name NSEEDS \
     context_strength change_w_in_teachers use_large_lambda_limit \
-    input_share_variability
 
     sbatch --account=cox_lab --job-name=$batch_name --mem=$MEM_REQUEST -t $TIME_REQUEST -p $PARTITION\
     -o /n/home11/haozheshan/ContinualLearning2022/outputs/${batch_name}/run_message_${trial_ind}.txt\

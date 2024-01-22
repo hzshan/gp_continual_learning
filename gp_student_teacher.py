@@ -59,7 +59,6 @@ for seed in range(args.NSEEDS):
             accumulate=False,
             precision=64,
             teacher_change_weights=bool(args.change_w_in_teachers),
-            input_share_variability=bool(args.input_share_variability),
             train_data_has_var=bool(args.train_data_has_var),
             )
 
