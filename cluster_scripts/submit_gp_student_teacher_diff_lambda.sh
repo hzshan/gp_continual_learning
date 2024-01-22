@@ -18,6 +18,7 @@ use_large_lambda_limit=0
 context_strength=1.0
 change_w_in_teachers=0.0
 input_share_variability=0  # this needs to be 0 if testing generalization
+train_data_has_var=0
 
 tsim=0  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
 xsim=50  # ENTER PERCENTAGE VALUE (e.g. 80 for 0.80)
@@ -50,7 +51,7 @@ do
   export P P_test n_tasks T sigma N0 Nh NC radius tsim xsim N0context \
   depth seed lambda_val script_name trial_ind batch_name NSEEDS \
   context_strength change_w_in_teachers use_large_lambda_limit \
-  input_share_variability
+  input_share_variability train_data_has_var
 
   sbatch --account=cox_lab --job-name=$batch_name --mem=$MEM_REQUEST -t $TIME_REQUEST -p $PARTITION\
   -o /n/home11/haozheshan/ContinualLearning2022/outputs/${batch_name}/run_message_${trial_ind}.txt\
