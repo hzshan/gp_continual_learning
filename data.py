@@ -9,6 +9,15 @@ Utility functions for working with MNIST, CIFAR-10 etc.
 Also includes code for generating Gaussian mixture ("cluster") data.
 """
 
+def _mix_array(arr1, arr2, similarity):
+    """
+    Returns sqrt(sim) * arr1 + sqrt(1-sim) * arr2. If arr2 is None, add N(0,1) Gaussian noise
+    """
+    if arr2 is None:
+        arr2 = torch.normal(torch.zeros_like(arr1), std=1)
+    assert arr1.shape == arr2.shape
+    return np.sqrt(similarity) * arr1 + np.sqrt(1 - similarity) * arr2
+
 def add_replay_items(seq_of_x, seq_of_y, p_replay):
     """
     This turns seq_of_x, which is typically a torch tensor object, into a list object, to accomodate the fact that
@@ -48,7 +57,9 @@ def add_task_embedding(seq_of_train_x, seq_of_test_x, embedding_dim, strength=10
 def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
                         num_cluster, relative_radius, input_dim,
                         num_datasets, input_similarity,
-                        share_variability=True, train_data_has_var=True):
+                        share_variability=True,
+                        train_data_has_var=True,
+                        accumulate_changes=False):
     """
     Generated clustered data for the template model. 
 
@@ -63,8 +74,11 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
         input_similarity: pearson correlation between cluster centers in different datasets.
         share_variability: whether to share the deviations from cluster centers across datasets.
         train_data_has_var: whether to add deviations from cluster centers to training data.
+        accumulate_changes: if true, similarity describes relation between first and last task. 
     """
     
+    if share_variability:
+        raise DeprecationWarning('share_variability is deprecated. Will be removed in future commits.')
     # check whether training data are sampled around the mean, or they are the
     # mean. If they are the mean, then num_train_per_cluster should be 1. 
     if train_data_has_var is False:
@@ -73,7 +87,6 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
 
     def _generate_centers(n_cluster, n0, n_train_per_cluster,
                           n_test_per_cluster, rel_radius):
-        # cluster centers have STD = sqrt(1 - rel_radius)
         centers = torch.normal(torch.zeros((n_cluster, n0)),
                                std=np.sqrt(1 - rel_radius))
         
@@ -88,14 +101,40 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
                           n_train_per_cluster=num_train_per_cluster,
                           n_test_per_cluster=num_test_per_cluster,
                           rel_radius=relative_radius)
-
+    
+    if accumulate_changes:
+        # generate centers for the last task
+        del_tr_centers, del_te_centers =\
+            _generate_centers(n_cluster=num_cluster, n0=input_dim,
+                                n_train_per_cluster=num_train_per_cluster,
+                                n_test_per_cluster=num_test_per_cluster,
+                                rel_radius=relative_radius)
+        ref_tr_center_last = _mix_array(ref_tr_center, del_tr_centers, input_similarity)
+        ref_te_center_last = _mix_array(ref_te_center, del_te_centers, input_similarity)
     train_datasets = []
     test_datasets = []
 
-    if share_variability:
-        # in this case, deviations from cluster centers are shared across
-        # datasets. This ensures that when input_similarity = 1, all the 
-        # datasets are identical.
+    for i in range(num_datasets):
+        
+        tr_center = None
+        te_center = None
+
+        # decide centers for this task
+        if accumulate_changes:
+            tr_center = _mix_array(ref_tr_center, ref_tr_center_last, 1 - i / (num_datasets - 1))
+            te_center = _mix_array(ref_te_center, ref_te_center_last, 1 - i / (num_datasets - 1))
+        
+        else:
+            del_tr_center, del_te_center =\
+                _generate_centers(n_cluster=num_cluster, n0=input_dim,
+                                n_train_per_cluster=num_train_per_cluster,
+                                n_test_per_cluster=num_test_per_cluster,
+                                rel_radius=relative_radius)
+
+            tr_center = _mix_array(ref_tr_center, del_tr_center, input_similarity)
+            te_center = _mix_array(ref_te_center, del_te_center, input_similarity)
+
+        # generate noise to add to centers
         deviations_from_center_tr = torch.normal(
             mean=torch.zeros_like(ref_tr_center),
             std=np.sqrt(relative_radius))
@@ -104,28 +143,7 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
             mean=torch.zeros_like(ref_te_center),
             std=np.sqrt(relative_radius))
 
-    for i in range(num_datasets):
-
-        if not share_variability:
-            deviations_from_center_tr = torch.normal(
-                mean=torch.zeros_like(ref_tr_center),
-                std=np.sqrt(relative_radius))
-
-            deviations_from_center_te = torch.normal(
-                mean=torch.zeros_like(ref_te_center),
-                std=np.sqrt(relative_radius))
-
-        del_tr_center, del_te_center =\
-            _generate_centers(n_cluster=num_cluster, n0=input_dim,
-                              n_train_per_cluster=num_train_per_cluster,
-                              n_test_per_cluster=num_test_per_cluster,
-                              rel_radius=relative_radius)
-
-        tr_center = (np.sqrt(input_similarity) * ref_tr_center +
-                      np.sqrt(1 - input_similarity) * del_tr_center)
-        te_center = (np.sqrt(input_similarity) * ref_te_center + 
-                     np.sqrt(1 - input_similarity) * del_te_center)
-
+        # only add noise to training data if train_data_has_var is True
         if train_data_has_var:
             train_datasets.append(tr_center + deviations_from_center_tr)
         else:
@@ -157,44 +175,45 @@ class ReluTeachers:
                 hidden_dim,
                 teacher_similarity,
                 num_teachers=5,
-                accumulate=False,
+                accumulate_changes=False,
                 device=None,
                 same_weight=True):
+
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.Ws = []  # list of first-layer weight matrices
         self.As = []  # list of second-layer readout weights
         self.biases = []  # list of scalar biases for teacher outputs.
         self.num_teachers = num_teachers
-        self.accumulative_change = accumulate
+        self.accumulate_changes = accumulate_changes
 
         # unit Gaussian input, used to compute the mean output and set to zero
         test_input = torch.normal(torch.zeros((input_dim * 5, input_dim)))  
 
-        # the way parameters are generated such that any pair of parameters has the same correlation (not Markovian)
         W_ref = torch.normal(torch.zeros((input_dim, hidden_dim)))
         A_ref = torch.normal(torch.zeros((hidden_dim, 1)))
 
-        for i in range(num_teachers):
-            if i == 0 or self.accumulative_change == False:
+        if self.accumulate_changes:
+            # if accumulating changes over time, then teacher similarity decides
+            # relation between the first and last teachers
+            W_ref_last = _mix_array(W_ref, None, teacher_similarity)
+            A_ref_last = _mix_array(A_ref, None, teacher_similarity)
 
-                if same_weight:
-                    self.Ws.append(W_ref)
-                else:
-                    self.Ws.append(np.sqrt(teacher_similarity) * W_ref +
-                                np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((input_dim, hidden_dim))))
+            # weights for each teacher are mixed from x_ref and x_ref_last
+            for i in range(num_teachers):
+                self.Ws.append(
+                    W_ref if same_weight else _mix_array(
+                        W_ref, W_ref_last, 1 - i / (num_teachers - 1)))
                 self.As.append(
-                    np.sqrt(teacher_similarity) * A_ref +
-                    np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((hidden_dim, 1))))
-            else:
-                if same_weight:
-                    self.Ws.append(W_ref)
-                else:
-                    self.Ws.append(np.sqrt(teacher_similarity) * self.Ws[-1] +
-                                np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((input_dim, hidden_dim))))
-                self.As.append(
-                    np.sqrt(teacher_similarity) * self.As[-1] +
-                    np.sqrt(1 - teacher_similarity) * torch.normal(torch.zeros((hidden_dim, 1))))  
+                    _mix_array(A_ref, A_ref_last, 1 - i / (num_teachers - 1)))
+
+        else:
+            for i in range(num_teachers):
+                self.Ws.append(
+                    W_ref if same_weight else _mix_array(
+                        W_ref, None, teacher_similarity))
+                
+                self.As.append(_mix_array(A_ref, None, teacher_similarity))
 
         # add a bias term to the output such that the mean output for input on the unit sphere is 0
         for i in range(num_teachers):
@@ -258,7 +277,8 @@ def prepare_cluster_dataset(num_tasks: int,
         num_datasets=num_tasks,
         input_similarity=input_similarity,
         share_variability=input_share_variability,
-        train_data_has_var=train_data_has_var)
+        train_data_has_var=train_data_has_var,
+        accumulate_changes=accumulate)
 
     if device is not None:
         all_x_train = [x.to(device) for x in all_x_train]
@@ -271,7 +291,7 @@ def prepare_cluster_dataset(num_tasks: int,
                             hidden_dim,
                             teacher_similarity,
                             num_teachers=num_tasks,
-                            accumulate=accumulate,
+                            accumulate_changes=accumulate,
                             device=device,
                             same_weight=not teacher_change_weights)
 
