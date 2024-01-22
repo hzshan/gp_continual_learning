@@ -6,6 +6,21 @@ import scipy.optimize, scipy.stats
 import matplotlib.pyplot as plt
 
 
+def get_diagonal_along_last_two_dims(np_array):
+    """
+    Assuming input of shape [X, Y, task_ind, time_ind], return an array 
+    of shape [X, Y, task_ind], where the last dimension indices
+      task_ind==time_ind
+    """
+    assert np_array.shape[-1] == np_array.shape[-2]
+    assert len (np_array.shape) == 4
+    output_array = np.zeros(np_array.shape[:-1])
+    for i in range(np_array.shape[0]):
+        for j in range(np_array.shape[1]):
+            output_array[i,j] = np.diag(np_array[i,j])
+    return output_array
+
+
 class PlotDataManager:
     def __init__(self, pathname=None):
         self.data = {'x':[], 'y':[], 'yerr':[], 'info':[], 'time':[]}
