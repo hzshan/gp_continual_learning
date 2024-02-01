@@ -18,6 +18,10 @@ def list_folders(path, keyword1, keyword2='', keyword3=''):
 
 
 def initialize():
+    """
+    Hacky way to initialize the path variables by detecting whether it's 
+    currently running on the cluster or locally.
+    """
     data_path = None
     output_home_path = None
 
@@ -51,6 +55,12 @@ class ClusterResultOrganizer:
         self.file_name_list = []
         self.file_path = None
         self.verbose = verbose
+
+        self.packed_results = False
+        if self.batch_name.endswith('.packed_results'):
+            print('Loading a packed result file.')
+            self.packed_results = True
+    
         self.load_all()
         if self.verbose:
             print('Available data keys are ' + str(self.all_data_obj[0].keys()))
@@ -63,23 +73,38 @@ class ClusterResultOrganizer:
 
     def load_all(self):
         
-        filepath = f'{self.local_path}/{self.batch_name}/'
-        self.file_path = filepath
-        file_list = os.listdir(filepath)
-
-        for file in file_list:
-            if file.endswith('.results'):
-                try:
-                    _obj = pickle.load(open(filepath + file, 'rb'))
-                except:
-                    print(f'Loading {filepath + file} failed.')
-                    continue
-                self.file_name_list.append(file)
-                self.all_data_obj.append(_obj)
-                self.all_args.append(_obj['args'])
+        if self.packed_results:
+            packed_results = pickle.load(open(f'{self.local_path}/{self.batch_name}', 'rb'))
+            self.all_data_obj = packed_results['data_obj_list']
+        
+            for _result_obj in self.all_data_obj:
+                self.all_args.append(_result_obj['args'])
                 if self.order_by_seed_number:
-                    self.all_seed_numbers.append(_obj['args'].seed)
-                self.args = _obj['args']
+                    self.all_seed_numbers.append(_result_obj['args'].seed)
+                self.args = _result_obj['args']
+        else:
+            filepath = f'{self.local_path}/{self.batch_name}/'
+            self.file_path = filepath
+            file_list = os.listdir(filepath)
+            print(filepath)
+            num_result_files = 0
+            for file_name in file_list:
+                if file_name.endswith('.results'):
+                    num_result_files += 1
+                    try:
+                        _obj = pickle.load(open(filepath + file_name, 'rb'))
+                    except:
+                        print(f'Loading {filepath + file_name} failed.')
+                        continue
+                    self.file_name_list.append(file_name)
+                    self.all_data_obj.append(_obj)
+                    self.all_args.append(_obj['args'])
+                    if self.order_by_seed_number:
+                        self.all_seed_numbers.append(_obj['args'].seed)
+                    self.args = _obj['args']
+            
+            if num_result_files == 0:
+                raise RuntimeError(f'No result files found under {filepath}.')
 
         # attempt to identify the variable that is different between jobs. 
         # This is done by using the first key found to have multiple values
