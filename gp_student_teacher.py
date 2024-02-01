@@ -29,11 +29,11 @@ logger = cluster_utils.Logger(
 
 logger.log(str(args))
 results = {'args': args}
-
+ 
 for key in ['train loss', 'test loss', 'train acc',
-            'test acc', 'train loss naive', 'test loss naive',
-            'train acc naive', 'test acc naive',
-            'train magnitude', 'train magnitude naive', 'tr(P1P2)/P', 'V1-V2']:
+            'test acc', 'train loss zero lambda', 'test loss zero lambda',
+            'train acc zero lambda', 'test acc zero lambda',
+            'tr(P1P2)/P', 'V1-V2']:
     results[key] = []
 
 # Use the same seed for sampling the dataset etc.
@@ -77,41 +77,35 @@ for seed in range(args.NSEEDS):
                                         large_lambda=large_lambda,
                                         depth=args.depth)
 
-    training_predictions_naive, test_predictions_naive =\
+    training_predictions_zero_lambda, test_predictions_zero_lambda =\
         theory.compute_mean_predictions(seq_of_train_x=seq_of_train_x,
                                         seq_of_train_y=seq_of_train_y,
                                         w_var=args.sigma**2, 
-                                        lambda_val=args.lambda_val,
+                                        lambda_val=0.01,
                                         seq_of_test_x=seq_of_test_x,
-                                        large_lambda=large_lambda,
-                                        depth=args.depth,
-                                        use_naive_gp=True)
+                                        large_lambda=False,
+                                        depth=args.depth)
 
 
     train_loss, test_loss, train_acc, test_acc =\
         data.get_loss_acc(training_predictions, test_predictions,
                         seq_of_train_y, seq_of_test_y)
 
-    train_loss_naive, test_loss_naive, train_acc_naive, test_acc_naive =\
-        data.get_loss_acc(training_predictions_naive, test_predictions_naive,
-                        seq_of_train_y, seq_of_test_y)
+    (train_loss_zero_lambda, test_loss_zero_lambda,
+     train_acc_zero_lambda, test_acc_zero_lambda) =\
+        data.get_loss_acc(training_predictions_zero_lambda,
+                          test_predictions_zero_lambda,
+                          seq_of_train_y, seq_of_test_y)
 
     results['train loss'].append(train_loss)
     results['test loss'].append(test_loss)
     results['train acc'].append(train_acc)
     results['test acc'].append(test_acc)
 
-    results['train magnitude'].append(
-        np.linalg.norm(training_predictions.squeeze(), axis=-1)**2 / args.P)
-
-    results['train loss naive'].append(train_loss_naive)
-    results['test loss naive'].append(test_loss_naive)
-    results['train acc naive'].append(train_acc_naive)
-    results['test acc naive'].append(test_acc_naive)
-
-    results['train magnitude naive'].append(
-        np.linalg.norm(
-            training_predictions_naive.squeeze(), axis=-1)**2 / args.P)
+    results['train loss zero lambda'].append(train_loss_zero_lambda)
+    results['test loss zero lambda'].append(test_loss_zero_lambda)
+    results['train acc zero lambda'].append(train_acc_zero_lambda)
+    results['test acc zero lambda'].append(test_acc_zero_lambda)
 
     # compute some order parameters
     trp1p2, v1v2cos, v1v2cos_ref = theory.compute_forgetting_ops(
@@ -123,8 +117,10 @@ for seed in range(args.NSEEDS):
     results['V1-V2'].append(2 - 2 * v1v2cos)
 
 for key in ['train loss', 'test loss', 'train acc', 'test acc',
-            'train loss naive', 'test loss naive', 'train acc naive',
-            'test acc naive']:
+            'train loss zero lambda',
+            'test loss zero lambda',
+            'train acc zero lambda',
+            'test acc zero lambda']:
     results[key] = np.stack(results[key])
 
 if ON_CLUSTER:
