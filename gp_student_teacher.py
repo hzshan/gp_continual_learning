@@ -4,6 +4,7 @@ Continual learning theory using the student-teacher setup.
 1. Be sure to use 64 bit precision
 2. Every job contains MULTIPLE random seeds. This streamlines the job submission process.
 """
+SAVE_ACCURACY = False
 
 import numpy as np
 import theory, cluster_utils, data, torch, sys, configs
@@ -122,6 +123,10 @@ for key in ['train loss', 'test loss', 'train acc', 'test acc',
             'train acc zero lambda',
             'test acc zero lambda']:
     results[key] = np.stack(results[key])
+
+    if SAVE_ACCURACY is False:
+        if 'acc' in key:
+            results[key] = None
 
 if ON_CLUSTER:
 
