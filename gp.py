@@ -108,6 +108,11 @@ training_predictions, test_predictions =\
                       seq_of_train_y,
                       seq_of_test_y, only_first_task=ONLY_FIRST_TASK)
 
+results['single task test loss'] = theory.get_single_task_test_losses(
+    seq_of_train_x, seq_of_train_y, seq_of_test_x, seq_of_test_y,
+    depth=args.depth
+    )
+
 
 # results['train magnitude'] = np.linalg.norm(
 #     training_predictions.squeeze(), axis=-1)**2 / args.P
