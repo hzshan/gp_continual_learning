@@ -9,6 +9,45 @@ Utility functions for working with MNIST, CIFAR-10 etc.
 Also includes code for generating Gaussian mixture ("cluster") data.
 """
 
+def permute_with_intermediate_task(
+        seq_of_train_x, seq_of_test_x, perm_strength):
+    """
+    Takes input sequences with three tasks. Apply a half permutation to the 
+    second task and a "whole" permutation to the third one. Strength of the 
+    "whole" permutation is set by perm_strength. "half" means permute half of
+    the pixels
+    """
+    assert len(seq_of_train_x) == 3, 'This function is designed for three tasks'
+    assert len(seq_of_test_x) == 3, 'This function is designed for three tasks'
+
+    n0 = seq_of_train_x.shape[-1]
+    n0_to_perm = int(n0 * perm_strength)
+    n0_half_perm = int(n0_to_perm / 2)
+    # select all pixel indices to be permuted b/t tasks 1 and 3
+    inds_to_permute = torch.randperm(n0)[:n0_to_perm]
+
+    # for half perm, only permute the first half of selected indices
+    half_permed_inds = inds_to_permute.clone()
+    half_permed_inds[:n0_half_perm] = half_permed_inds[:n0_half_perm][torch.randperm(n0_half_perm)]
+
+    full_permed_inds = half_permed_inds.clone()
+    full_permed_inds[n0_half_perm:] = full_permed_inds[n0_half_perm:][torch.randperm(n0_to_perm - n0_half_perm)]
+
+    half_perm_mat = torch.eye(n0).double()
+    full_perm_mat = torch.eye(n0).double()
+    half_perm_mat[inds_to_permute] = half_perm_mat[half_permed_inds]
+    full_perm_mat[inds_to_permute] = full_perm_mat[full_permed_inds]
+
+    # apply perm mats
+    seq_of_train_x[1] = seq_of_train_x[1] @ half_perm_mat
+    seq_of_test_x[1] = seq_of_test_x[1] @ half_perm_mat
+    seq_of_train_x[2] = seq_of_train_x[2] @ full_perm_mat
+    seq_of_test_x[2] = seq_of_test_x[2] @ full_perm_mat
+    
+    return seq_of_train_x, seq_of_test_x
+
+
+
 def _mix_array(arr1, arr2, similarity):
     """
     Returns sqrt(sim) * arr1 + sqrt(1-sim) * arr2. If arr2 is None, add N(0,1) Gaussian noise
