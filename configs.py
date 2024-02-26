@@ -1,6 +1,44 @@
 import cluster_utils
 
 
+class GPRealDataArgsParser(cluster_utils.Args):
+    
+    def __init__(self):
+        super().__init__()
+        self.add('P', 100)  # size of each training set
+        self.add('P_test', 200)  # size of each testing set
+        self.add('n_tasks', 2, help='number of tasks in the sequence')
+        self.add('depth', 1,
+                help='num of hidden layers.'
+                'setting depth=0 would use the input kernel')
+
+        self.add('lambda_val', 1e5, help='lambda')
+        self.add('use_large_lambda_limit', 0,
+                help='whether to assume infinite lambda.'
+                'this makes calculations substantially faster.')
+        
+        # task type configs
+        self.add('permutation', 0,
+                help='permutation strength; 1.0=full permulation')
+        self.add('resample', 0, help='boolean variable')
+        self.add('task_type', 'permuted', help='permuted/split')
+        self.add('dataset', 'mnist', help='mnist/cifar/fashion/cifar100')
+
+        # utility configs
+        self.add('seed', 0, help='random seed')
+        self.add('save_outputs', 0, help='1/0'
+                '; decides whether or not to save predictions on datasets;'
+                ' takes up a lot of disk space')
+
+        # These are not expected to differ in current analysis
+        self.add('whiten', 1, help='1/0. Whether to whiten data first.')
+        self.add('naive_gp', 0, help='1/0')
+        self.add('T', 0.0, help='temperature')
+        self.add('sigma', 0.2, help='weight variance')
+        self.add('N0context', 0, help='embedding dimension')
+        self.add('context_strength', 1.0,
+                help='magnifying factor for context embedding')
+
 class StudentTeacherArgsParser(cluster_utils.Args):
 
     def __init__(self):
