@@ -1,5 +1,5 @@
 script_name=gp_with_intermediate.py
-dataset='mnist'
+dataset='fashion'
 task_type='permuted'
 P=500
 P_test=100  # for cifar100 this can be at most 200

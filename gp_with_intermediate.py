@@ -1,12 +1,11 @@
 """
 GP-limit continual learning theory for two-way classification problems.
 1. EVERY RANDOM SEED CORRESPONDS TO A NEW RANDOM DATA SAMPLE!!!
-
 """
 
 # only save loss/accuracy of the first task across time
 # this is to reduce the size of the output file
-ONLY_FIRST_TASK = True
+ONLY_FIRST_TASK = False
 
 
 import numpy as np
@@ -44,7 +43,6 @@ parser.add('whiten', 0, help='1/0. Whether to whiten data first.')
 args = parser.parse_args()
 
 # Hacky reset of some parameters
-args.n_tasks = 3
 args.resample = 1
 
 
@@ -60,7 +58,7 @@ logger = cluster_utils.Logger(
 
 logger.log(str(args))
 logger.log('This is a script built for a very specific scenario. It ignores' +
-           'the following arguments: n_tasks, resample. It applies an intermediate permutation to the second task and a full one to the third.')
+           'the following arguments: resample. It applies an intermediate permutation to the second task and a full one to the third.')
 results = {'args': args}
 
 # Use the same seed for sampling the dataset etc.

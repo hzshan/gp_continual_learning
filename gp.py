@@ -6,7 +6,7 @@ GP-limit continual learning theory for two-way classification problems.
 
 # only save loss/accuracy of the first task across time
 # this is to reduce the size of the output file
-ONLY_FIRST_TASK = True
+ONLY_FIRST_TASK = False
 
 
 import numpy as np
