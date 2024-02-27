@@ -12,37 +12,57 @@ Also includes code for generating Gaussian mixture ("cluster") data.
 def permute_with_intermediate_task(
         seq_of_train_x, seq_of_test_x, perm_strength):
     """
-    Takes input sequences with three tasks. Apply a half permutation to the 
-    second task and a "whole" permutation to the third one. Strength of the 
-    "whole" permutation is set by perm_strength. "half" means permute half of
-    the pixels
-    """
-    assert len(seq_of_train_x) == 3, 'This function is designed for three tasks'
-    assert len(seq_of_test_x) == 3, 'This function is designed for three tasks'
+    Split one permutation operation into several parts. Apply increasingly
+    many parts to each task in the sequence.
 
-    n0 = seq_of_train_x.shape[-1]
-    n0_to_perm = int(n0 * perm_strength)
-    n0_half_perm = int(n0_to_perm / 2)
-    # select all pixel indices to be permuted b/t tasks 1 and 3
+    To generate a permutation matrix, we first make an identity matrix, 
+    randomly select some of its rows, and scramble them. "inds_to_permute"
+    selects the rows to exchange. To apply a part of the permutation, we only 
+    scramble a subset of these indices. 
+    """
+    num_tasks = len(seq_of_train_x)
+    n0 = seq_of_train_x.shape[-1]  # input dimension
+    assert len(seq_of_test_x) == num_tasks
+
+    
+    n0_to_perm = int(n0 * perm_strength)  # total number of pixels to permute
+
+    # number of pixels in each permutation "part"
+    n0_perm_per_task = int(n0_to_perm / (num_tasks-1))
+    if perm_strength > 0:
+        assert n0_perm_per_task > 3, 'Too few pixels to permute'
+
+    # select all pixel indices to be permuted b/t first and last tasks
     inds_to_permute = torch.randperm(n0)[:n0_to_perm]
 
-    # for half perm, only permute the first half of selected indices
-    half_permed_inds = inds_to_permute.clone()
-    half_permed_inds[:n0_half_perm] = half_permed_inds[:n0_half_perm][torch.randperm(n0_half_perm)]
+    # function that permutes a segment in a sequence
+    def part_perm(array, start_ind, end_ind):
+        if end_ind == start_ind:
+            return array
+        assert end_ind > start_ind
+        perm_inds = array.clone()
+        perm_inds[start_ind:end_ind] =\
+              perm_inds[start_ind:end_ind][torch.randperm(end_ind - start_ind)]
+        return perm_inds
+    
+    perm_inds = [inds_to_permute]
+    for i in range(1, num_tasks):
+        # for each task, we scramble a set of indices that wasn't scramled
+        # in the previous task
+        perm_inds.append(part_perm(perm_inds[-1],
+                                   n0_perm_per_task * (i-1),
+                                   n0_perm_per_task * i)
+                                   )
 
-    full_permed_inds = half_permed_inds.clone()
-    full_permed_inds[n0_half_perm:] = full_permed_inds[n0_half_perm:][torch.randperm(n0_to_perm - n0_half_perm)]
 
-    half_perm_mat = torch.eye(n0).double()
-    full_perm_mat = torch.eye(n0).double()
-    half_perm_mat[inds_to_permute] = half_perm_mat[half_permed_inds]
-    full_perm_mat[inds_to_permute] = full_perm_mat[full_permed_inds]
+    perm_mats = [torch.eye(n0).double() for _ in range(num_tasks)]
+    for i in range(num_tasks):
+        perm_mats[i][inds_to_permute] = perm_mats[i][perm_inds[i]]
 
     # apply perm mats
-    seq_of_train_x[1] = seq_of_train_x[1] @ half_perm_mat
-    seq_of_test_x[1] = seq_of_test_x[1] @ half_perm_mat
-    seq_of_train_x[2] = seq_of_train_x[2] @ full_perm_mat
-    seq_of_test_x[2] = seq_of_test_x[2] @ full_perm_mat
+    for i in range(num_tasks):
+        seq_of_train_x[i] = seq_of_train_x[i] @ perm_mats[i]
+        seq_of_test_x[i] = seq_of_test_x[i] @ perm_mats[i]
     
     return seq_of_train_x, seq_of_test_x
 
