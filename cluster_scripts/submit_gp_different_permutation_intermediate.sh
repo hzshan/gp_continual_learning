@@ -1,9 +1,9 @@
 script_name=gp_with_intermediate.py
-dataset='fashion'
+dataset='mnist'
 task_type='permuted'
-P=500
+P=250
 P_test=100  # for cifar100 this can be at most 200
-n_tasks=3
+n_tasks=7
 T=0
 sigma=0.2
 resample=1  # this is turned ON for testing anterograde effects on generalization
