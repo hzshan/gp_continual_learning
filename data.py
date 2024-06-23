@@ -706,6 +706,9 @@ def load_dataset(dataset_name: str,
                  path=None,
                  mean_subtraction='image',
                  whitening=False):
+    """
+    Does mean subtraction, duplicate removal, whitening, and scale normalization. 
+    """
     if path is None:
         path = '/Users/haozheshan/Dropbox/codes/gp_continual_learning/datasets'
 
