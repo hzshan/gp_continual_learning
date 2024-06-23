@@ -484,6 +484,16 @@ def get_gp_overlap(x1, x2, depth, epsilon=0):
                                         torch.inverse(K2 + epsilon * torch.eye(P)) @ K12.T) / P
 
 
+def compute_single_task_test_loss(train_x, train_y, test_x, test_y,
+                                depth: int):
+    k_tr = arccos_kernel_deep(
+        train_x, train_x, depth)
+    test_preds = arccos_kernel_deep(
+        test_x, train_x, depth) @ \
+            torch.inverse(k_tr) @ train_y
+    return torch.norm(
+        test_preds.flatten() - test_y.flatten())**2 / torch.norm(test_y)**2
+
 def get_single_task_test_losses(seq_of_train_x,
                                 seq_of_train_y,
                                 seq_of_test_x,
@@ -502,12 +512,8 @@ def get_single_task_test_losses(seq_of_train_x,
 
     test_losses = np.zeros(n_tasks)
     for task_ind in range(n_tasks):
-        k_t = arccos_kernel_deep(
-            seq_of_train_x[task_ind], seq_of_train_x[task_ind], depth)
-        test_preds = arccos_kernel_deep(
-            seq_of_test_x[task_ind], seq_of_train_x[task_ind], depth) @ \
-                torch.inverse(k_t) @ seq_of_train_y[task_ind]
-        test_losses[task_ind] = torch.norm(
-            test_preds.flatten() - seq_of_test_y[task_ind].flatten())**2 / \
-                  torch.norm(seq_of_test_y[task_ind])**2
+        test_losses[task_ind] = compute_single_task_test_loss(
+            seq_of_train_x[task_ind], seq_of_train_y[task_ind],
+            seq_of_test_x[task_ind], seq_of_test_y[task_ind],
+            depth)
     return test_losses
