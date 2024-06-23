@@ -9,7 +9,7 @@ ONLY_FIRST_TASK = False
 
 
 import numpy as np
-import theory, cluster_utils, data, torch, sys
+import theory, cluster_utils, data, torch, sys, utils
 
 ON_CLUSTER, data_path, output_home_path = cluster_utils.initialize()
 
@@ -99,9 +99,18 @@ seq_of_train_x, seq_of_test_x = data.add_task_embedding(
     args.context_strength)
 
 # apply permutation with intermediate task
-seq_of_train_x, seq_of_test_x = data.permute_with_intermediate_task(
-    seq_of_train_x, seq_of_test_x, args.permutation
-)
+perm_mat = utils.get_permutation_mat(seq_of_train_x[0].shape[1],
+                                        args.permutation).double()
+
+# apply to more images in later tasks
+for j in range(1, args.n_tasks):
+    num_to_permute_tr = int(args.P * j / (args.n_tasks - 1))
+    perm_inds = torch.randperm(args.P)[:num_to_permute_tr]
+    seq_of_train_x[j, perm_inds] = seq_of_train_x[j, perm_inds] @ perm_mat
+
+    num_to_permute_te = int(args.P_test * j / (args.n_tasks - 1))
+    perm_inds = torch.randperm(args.P_test)[:num_to_permute_te]
+    seq_of_test_x[j, perm_inds] = seq_of_test_x[j, perm_inds] @ perm_mat
 
 training_predictions, test_predictions =\
     theory.compute_mean_predictions(
