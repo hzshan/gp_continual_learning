@@ -643,7 +643,6 @@ def _generate_split_sequence_from_loaded_data(all_train_x,
         fused_y = torch.vstack((torch.ones((p_digit, 1)),
                                  torch.ones((p_digit, 1)) * -1))
         
-
         return fused_x, fused_y
 
 
@@ -662,9 +661,72 @@ def _generate_split_sequence_from_loaded_data(all_train_x,
         seq_of_train_y.append(train_y)
         seq_of_test_y.append(test_y)
 
+    # to create split sequences with partial splitting, mix data here
 
-    return _pack_data(seq_of_train_x, precision), _pack_data(seq_of_test_x, precision), \
-           _pack_data(seq_of_train_y, precision), _pack_data(seq_of_test_y, precision)
+    def _mix_split_sequence(seq_of_x, split_ratio):
+        """
+        Each task has P examples, P/2 from each class.
+        Within each class (e.g. the one with +1 label),
+        (1-split_ratio)P/2 are evenly split between all digits with this label
+        that appear in the sequence (there are T in total), so each digit contributes
+        'P_per_digit_to_share' examples to the shared part of each task.
+        """
+        
+        T, P, N0 = seq_of_x.shape
+
+        # in each class there are P/2 examples per task...
+        P_per_class = int(P / 2)
+
+        # ...within which P/2 * (1-split_ratio) are the examples shared by all 
+        # tasks. These examples are evenly split between all digits with this
+        # label, and there are T in total. Therefore, each digit contributes
+        # P_per_digit_to_share examples to the shared part of each task.
+        P_per_digit_to_share = int(P / 2 * (1 - split_ratio) / T)
+        
+        # reshape sequence such that examples from the two classes are 
+        # separated
+        reshaped_seq_of_x = seq_of_x.reshape(T, 2, P_per_class, -1)
+        mixed_seq_of_x = reshaped_seq_of_x.clone()
+    
+        # all shared x for class 1
+        shared_class1_tr_x = torch.vstack([
+            reshaped_seq_of_x[
+                i, 0, :P_per_digit_to_share] for i in range(T)])
+
+        shared_class2_tr_x = torch.vstack([
+            reshaped_seq_of_x[
+                i, 1, :P_per_digit_to_share] for i in range(T)])
+
+        P_shared_per_class, _ = shared_class1_tr_x.shape
+
+        P_digit_unshared = P_per_class - P_shared_per_class
+
+        for i in range(T):
+            # all unshared x for class 1
+            unshared_class1_tr_x = reshaped_seq_of_x[
+                i, 0, P_per_digit_to_share:(
+                    P_per_digit_to_share+P_digit_unshared)]
+            unshared_class2_tr_x = reshaped_seq_of_x[
+                i, 1, P_per_digit_to_share:(
+                    P_per_digit_to_share+P_digit_unshared)]
+            
+            print(shared_class1_tr_x.shape)
+            print(unshared_class1_tr_x.shape)
+
+            mixed_seq_of_x[i, 0] = torch.vstack(
+                [shared_class1_tr_x, unshared_class1_tr_x])
+            mixed_seq_of_x[i, 1] = torch.vstack(
+                [shared_class2_tr_x, unshared_class2_tr_x])
+        
+        return mixed_seq_of_x.reshape(T, P, N0)
+
+    return (
+        _mix_split_sequence(
+            _pack_data(seq_of_train_x, precision), split_ratio), 
+        _mix_split_sequence(
+        _pack_data(seq_of_test_x, precision), split_ratio),
+        _pack_data(seq_of_train_y, precision),
+        _pack_data(seq_of_test_y, precision))
 
 
 def prepare_split_sequence(train_p: int,
