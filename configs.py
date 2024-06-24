@@ -2,7 +2,7 @@ import cluster_utils
 
 
 class GPRealDataArgsParser(cluster_utils.Args):
-    
+
     def __init__(self):
         super().__init__()
         self.add('P', 100)  # size of each training set
@@ -18,8 +18,9 @@ class GPRealDataArgsParser(cluster_utils.Args):
                 'this makes calculations substantially faster.')
         
         # task type configs
-        self.add('permutation', 0,
-                help='permutation strength; 1.0=full permulation')
+        self.add('manipulation_ratio', 0,
+                help='if using permutation, 1.0=full permulation; if' +
+                ' using split, 1.0=full split.')
         self.add('resample', 0, help='boolean variable')
         self.add('task_type', 'permuted', help='permuted/split')
         self.add('dataset', 'mnist', help='mnist/cifar/fashion/cifar100')
@@ -77,7 +78,9 @@ class GradientDescentArgsParser(cluster_utils.Args):
         self.add('n_tasks', 2, help='number of tasks in the sequence')
         self.add('resample', 1, help='boolean variable')
         self.add('task_type', 'permuted', help='permuted/split')
-        self.add('permutation', 1.0, help='how much permutation to use between tasks; 1.0=full permutation')
+        self.add('manipulation_ratio', 0,
+                help='if using permutation, 1.0=full permulation; if' +
+                ' using split, 1.0=full split.')
         self.add('depth', 1, help='num of hidden layers')
         self.add('dataset', 'mnist', help='dataset to use: mnist/cifar/fashion')
 

@@ -15,7 +15,7 @@ python /n/home11/haozheshan/ContinualLearning2022/$script_name  \
 --n_tasks $n_tasks \
 --lambda_val $lambda_val \
 --use_large_lambda_limit $use_large_lambda_limit \
---permutation $permutation \
+--manipulation_ratio $manipulation_ratio \
 --resample $resample \
 --T $T \
 --resample $resample \

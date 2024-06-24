@@ -19,8 +19,9 @@ parser.add('P_test', 200)  # size of each testing set
 parser.add('n_tasks', 5, help='number of tasks in the sequence')
 parser.add('T', 0.0, help='temperature')
 parser.add('sigma', 0.2, help='weight variance')
-parser.add('permutation', 1.0,
-           help='permutation strength; 1.0=full permulation')
+parser.add('manipulation_ratio', 0,
+        help='if using permutation, 1.0=full permulation; if' +
+        ' using split, 1.0=full split.')
 parser.add('resample', 1, help='boolean variable')
 parser.add('depth', 1,
            help='num of hidden layers.'
@@ -100,7 +101,7 @@ seq_of_train_x, seq_of_test_x = data.add_task_embedding(
 
 # apply permutation with intermediate task
 perm_mat = utils.get_permutation_mat(seq_of_train_x[0].shape[1],
-                                        args.permutation).double()
+                                        args.manipulation_ratio).double()
 
 # apply to more images in later tasks
 for j in range(1, args.n_tasks):

@@ -60,7 +60,7 @@ if args.task_type == 'permuted':
             args.P_test,
             dataset_name=args.dataset,
             resample=False,
-            permutation=args.permutation,
+            permutation=args.manipulation_ratio,
             data_path=data_path,
             precision=32)
 

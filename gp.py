@@ -10,37 +10,11 @@ ONLY_FIRST_TASK = False
 
 
 import numpy as np
-import theory, cluster_utils, data, torch, sys
+import theory, cluster_utils, data, torch, sys, configs
 
 ON_CLUSTER, data_path, output_home_path = cluster_utils.initialize()
 
-parser = cluster_utils.Args()
-parser.add('P', 500)  # size of each training set
-parser.add('P_test', 200)  # size of each testing set
-parser.add('n_tasks', 5, help='number of tasks in the sequence')
-parser.add('T', 0.0, help='temperature')
-parser.add('sigma', 0.2, help='weight variance')
-parser.add('permutation', 1.0,
-           help='permutation strength; 1.0=full permulation')
-parser.add('resample', 1, help='boolean variable')
-parser.add('depth', 1,
-           help='num of hidden layers.'
-           'setting depth=0 would use the input kernel')
-parser.add('seed', 0, help='random seed')
-parser.add('lambda_val', 1e5, help='lambda')
-parser.add('use_large_lambda_limit', 0,
-            help='whether to assume infinite lambda.'
-           'this makes calculations substantially faster.')
-parser.add('task_type', 'permuted', help='permuted/split')
-parser.add('naive_gp', 0, help='1/0')
-parser.add('dataset', 'mnist', help='mnist/cifar/fashion/cifar100')
-parser.add('N0context', 0, help='embedding dimension')
-parser.add('context_strength', 1.0,
-            help='magnifying factor for context embedding')
-parser.add('save_outputs', 0, help='1/0'
-           '; decides whether or not to save predictions on datasets;'
-           ' takes up a lot of disk space')
-parser.add('whiten', 0, help='1/0. Whether to whiten data first.')
+parser = configs.GPRealDataArgsParser()
 args = parser.parse_args()
 
 # log whether only saving first task performance
@@ -50,8 +24,7 @@ run_name = f'{args.BATCH_NAME}_{args.TRIAL_IND}'
 
 logger = cluster_utils.Logger(
     output_path=f'{output_home_path}{args.BATCH_NAME}/',
-    run_name=run_name,
-    only_print=not ON_CLUSTER)
+    run_name=run_name, only_print=not ON_CLUSTER)
 
 logger.log(str(args))
 results = {'args': args}
@@ -68,7 +41,7 @@ if args.task_type == 'permuted':
             args.P_test,
             dataset_name=args.dataset,
             resample=bool(args.resample),
-            permutation=args.permutation,
+            permutation=args.manipulation_ratio,
             data_path=data_path,
             precision=64,
             whitening=args.whiten,)
@@ -82,6 +55,7 @@ elif args.task_type == 'split':
             data_path=data_path,
             precision=64,
             n_tasks=args.n_tasks,
+            split_ratio=args.manipulation_ratio,
             whitening=args.whiten,)
 else:
     raise ValueError(

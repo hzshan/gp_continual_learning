@@ -7,7 +7,7 @@ n_tasks=100
 T=0
 sigma=0.2
 resample=0
-permutation=0.10  # this argument is ignored for split tasks
+manipulation_ratio=0.10  # this argument is ignored for split tasks
 lambda_val=1000000
 use_large_lambda_limit=1  # if 1, ignore lambda_val and assume large lambda
 naive_gp=0
@@ -38,8 +38,8 @@ trial_ind=0
 for depth in ${values[@]}
 do
  echo $depth
- export P P_test n_tasks T sigma depth permutation\
- script_name batch_name trial_ind lambda_val task_type dataset permutation\
+ export P P_test n_tasks T sigma depth manipulation_ratio\
+ script_name batch_name trial_ind lambda_val task_type dataset manipulation_ratio\
   resample naive_gp save_outputs N0context context_strength\
    use_large_lambda_limit whiten
 
