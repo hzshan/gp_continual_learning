@@ -709,9 +709,6 @@ def _generate_split_sequence_from_loaded_data(all_train_x,
             unshared_class2_tr_x = reshaped_seq_of_x[
                 i, 1, P_per_digit_to_share:(
                     P_per_digit_to_share+P_digit_unshared)]
-            
-            print(shared_class1_tr_x.shape)
-            print(unshared_class1_tr_x.shape)
 
             mixed_seq_of_x[i, 0] = torch.vstack(
                 [shared_class1_tr_x, unshared_class1_tr_x])

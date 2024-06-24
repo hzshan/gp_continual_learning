@@ -333,7 +333,9 @@ def cross_kernel_new(x1, x2, t1, t2, w_covar_mat, depth, lamb, sigma, fixed_kern
 
 
 def arccos_kernel_deep(x1, x2, depth, var1=1, var2=None, covar=None):
-    warnings.warn('arccosine kernel computation is assuming that all inputs have the same norm.')
+    warnings.warn(
+        'arccosine kernel computation is assuming that all inputs' + 
+        ' have the same norm.')
 
     # check the first three input vectors and see whether they have the same norm
     # (not checking all vectors to save compute)
