@@ -509,6 +509,9 @@ def prepare_dataset(num_tasks: int,
                   means different color channels are averaged to make grayscale
                   images.
     task_type:    'split' or 'permuted'.
+
+    Terminology: a 'digit' refers to a class of inputs in the original multi-way
+    classification dataset (e.g., each digit in MNIST). 
     
     '''
 
@@ -591,53 +594,93 @@ def _generate_split_dataset_from_loaded_data(all_train_x,
     seq_of_train_y = []
     seq_of_test_y = []
 
-    total_num_class = len(np.unique(all_test_digits))
-    num_tasks = np.min([int(total_num_class / 2), n_tasks])
+    n_digits_in_dataset = len(np.unique(all_test_digits))
+    num_tasks = np.min([int(n_digits_in_dataset / 2), n_tasks])
 
     # this determines the order of the tasks. the first two inds are the first
     # task, second two are the second task etc.
+    task_order = torch.arange(n_digits_in_dataset)
+    task_order = task_order[torch.randperm(len(task_order))][:num_tasks * 2]
+    p_digit_train = int(train_p / 2)
+    p_digit_test = int(test_p / 2)
 
-    task_order = torch.arange(total_num_class)
-    task_order = task_order[torch.randperm(len(task_order))]
+    def _select_digits_for_each_task(all_x, all_digits,
+                                     task_order, task_ind, p_digit):
+        """
+        From all_x, select p_digit examples for the digit specified by task_order[task_ind * 2]
+        and another p_digit examples for each digit specified by task_order[task_ind * 2 + 1].
+
+        Returns: input for each task (P x N0) and labels for each task (P x 1)
+        
+        Args:
+        all_x:  n_examples_in_dataset x N0
+        all_y: n_examples_in_dataset x 1, natural numbers
+        task_order: a sequence of randomly ordered natural numbers
+        task_ind: index of current task
+        p_digit: number of examples per digit in each task
+        """
+
+        class1_x = all_x[
+            all_digits == task_order[task_ind * 2]][:p_digit]
+        class2_x = all_x[
+            all_digits == task_order[task_ind * 2 + 1]][:p_digit]
+        
+        assert class1_x.shape[0] == p_digit
+        assert class2_x.shape[0] == p_digit
+        
+        fused_x = utils.normalize_input(
+            torch.vstack((class1_x, class2_x)))
+        fused_y = torch.vstack((torch.ones((p_digit, 1)),
+                                 torch.ones((p_digit, 1)) * -1))
+        
+
+        return fused_x, fused_y
+
 
     for task_ind in range(num_tasks):
         # select train/test x with a certain label
 
         # number of examples per digit
-        p_digit_train = int(train_p / 2)
-        p_digit_test = int(test_p / 2)
 
-        class1_train_x = all_train_x[
-            all_train_digits == task_order[task_ind * 2]][:p_digit_train]
-        class2_train_x = all_train_x[
-            all_train_digits == task_order[task_ind * 2 + 1]][:p_digit_train]
-        class1_test_x = all_test_x[
-            all_test_digits == task_order[task_ind * 2]][:p_digit_test]
-        class2_test_x = all_test_x[
-            all_test_digits == task_order[task_ind * 2 + 1]][:p_digit_test]
+        train_x, train_y = _select_digits_for_each_task(
+            all_train_x, all_train_digits, task_order, task_ind, p_digit_train)
+        test_x, test_y = _select_digits_for_each_task(
+            all_test_x, all_test_digits, task_order, task_ind, p_digit_test)
 
-        assert class1_train_x.shape[0] == p_digit_train, \
-              f'{class1_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
-        assert class2_train_x.shape[0] == p_digit_train, \
-            f'{class2_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
-        assert class1_test_x.shape[0] == p_digit_test, \
-            f'{class1_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
-        assert class2_test_x.shape[0] == p_digit_test, \
-            f'{class2_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
 
-        fused_train_x = utils.normalize_input(
-            torch.vstack((class1_train_x, class2_train_x)))
-        fused_test_x = utils.normalize_input(
-            torch.vstack((class1_test_x, class2_test_x)))
-        train_y = torch.vstack((torch.ones((p_digit_train, 1)),
-                                 torch.ones((p_digit_train, 1)) * -1))
-        test_y = torch.vstack((torch.ones((p_digit_test, 1)),
-                                torch.ones((p_digit_test, 1)) * -1))
+        # class1_train_x = all_train_x[
+        #     all_train_digits == task_order[task_ind * 2]][:p_digit_train]
+        # class2_train_x = all_train_x[
+        #     all_train_digits == task_order[task_ind * 2 + 1]][:p_digit_train]
+        # class1_test_x = all_test_x[
+        #     all_test_digits == task_order[task_ind * 2]][:p_digit_test]
+        # class2_test_x = all_test_x[
+        #     all_test_digits == task_order[task_ind * 2 + 1]][:p_digit_test]
 
-        seq_of_train_x.append(fused_train_x)
-        seq_of_test_x.append(fused_test_x)
+        # assert class1_train_x.shape[0] == p_digit_train, \
+        #       f'{class1_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
+        # assert class2_train_x.shape[0] == p_digit_train, \
+        #     f'{class2_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
+        # assert class1_test_x.shape[0] == p_digit_test, \
+        #     f'{class1_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
+        # assert class2_test_x.shape[0] == p_digit_test, \
+        #     f'{class2_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
+
+        # fused_train_x = utils.normalize_input(
+        #     torch.vstack((class1_train_x, class2_train_x)))
+        # fused_test_x = utils.normalize_input(
+        #     torch.vstack((class1_test_x, class2_test_x)))
+        # train_y = torch.vstack((torch.ones((p_digit_train, 1)),
+        #                          torch.ones((p_digit_train, 1)) * -1))
+        # test_y = torch.vstack((torch.ones((p_digit_test, 1)),
+        #                         torch.ones((p_digit_test, 1)) * -1))
+
+        seq_of_train_x.append(train_x)
+        seq_of_test_x.append(test_x)
         seq_of_train_y.append(train_y)
         seq_of_test_y.append(test_y)
+
+
 
     return _pack_data(seq_of_train_x, precision), _pack_data(seq_of_test_x, precision), \
            _pack_data(seq_of_train_y, precision), _pack_data(seq_of_test_y, precision)
@@ -649,10 +692,13 @@ def prepare_split_dataset(train_p: int,
                           data_path=None,
                           precision=32,
                           n_tasks=5,
+                          split_ratio=1,
                           whitening=False):
     """
-    The n_tasks parameter sets the maximum number of tasks to use. The other constraint is the number of classes in the
-    full dataset. If there are K classes (e.g., K=100 for CIFAR-100), then at most one can make 50 split tasks.
+    The n_tasks parameter sets the maximum number of tasks to use. The other 
+    constraint is the number of classes in the full dataset. If there are K 
+    classes (e.g., K=100 for CIFAR-100), then at most one can make 50 split
+    tasks.
     """
 
     # load the entire dataset first
@@ -672,6 +718,7 @@ def prepare_split_dataset(train_p: int,
         n_tasks,
         train_p,
         test_p,
+        split_ratio=split_ratio,
         precision=precision)
 
 
