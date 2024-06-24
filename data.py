@@ -427,7 +427,7 @@ def _pack_data(list_of_data_obs: list, precision=32):
         raise ValueError('Precision is not understood. Need to be 16/32/64')
 
 
-def _generate_permuted_dataset_from_loaded_data(
+def _generate_permutation_sequence_from_loaded_data(
         all_train_x, all_test_x, all_train_digits, all_test_digits,
         permutation, num_tasks, train_p, test_p, resample=False, precision=64):
     
@@ -525,7 +525,7 @@ def prepare_dataset(num_tasks: int,
 
     assert task_type in ['split', 'permuted'], 'task type not understood'
     if task_type == 'split':
-        return _generate_split_dataset_from_loaded_data(
+        return _generate_split_sequence_from_loaded_data(
             all_train_x,
             all_test_x,
             all_train_digits,
@@ -535,7 +535,7 @@ def prepare_dataset(num_tasks: int,
             test_p,
             precision=precision)
     else:
-        return _generate_permuted_dataset_from_loaded_data(
+        return _generate_permutation_sequence_from_loaded_data(
             all_train_x,
             all_test_x,
             all_train_digits,
@@ -547,7 +547,7 @@ def prepare_dataset(num_tasks: int,
             resample=perm_resample,
             precision=precision)
 
-def prepare_permuted_dataset(num_tasks: int,
+def prepare_permutation_sequence(num_tasks: int,
                              train_p: int,
                              test_p: int,
                              dataset_name: str,
@@ -568,7 +568,7 @@ def prepare_permuted_dataset(num_tasks: int,
             path=data_path,
             whitening=whitening)
 
-    return _generate_permuted_dataset_from_loaded_data(all_train_x,
+    return _generate_permutation_sequence_from_loaded_data(all_train_x,
                                                        all_test_x,
                                                        all_train_digits,
                                                        all_test_digits,
@@ -580,14 +580,24 @@ def prepare_permuted_dataset(num_tasks: int,
                                                        precision=precision)
 
 
-def _generate_split_dataset_from_loaded_data(all_train_x,
+def _generate_split_sequence_from_loaded_data(all_train_x,
                                             all_test_x,
                                             all_train_digits,
                                             all_test_digits,
                                             n_tasks,
                                             train_p,
                                             test_p,
+                                            split_ratio=1,
                                             precision=64):
+    """
+    Each split task has inputs coming from two sources. A fraction
+    (1-split_ratio) of them are equally divided among all digits used in this
+    task sequence. The rest (split_ratio) are equally divided between two
+    specific digits assigned to this task.
+
+    Example: the dataset uses digits 0-9. The first task, which has 0 and 1
+    assigned to it, will have (1-split_ratio)
+    """
 
     seq_of_train_x = []
     seq_of_test_x = []
@@ -647,46 +657,17 @@ def _generate_split_dataset_from_loaded_data(all_train_x,
         test_x, test_y = _select_digits_for_each_task(
             all_test_x, all_test_digits, task_order, task_ind, p_digit_test)
 
-
-        # class1_train_x = all_train_x[
-        #     all_train_digits == task_order[task_ind * 2]][:p_digit_train]
-        # class2_train_x = all_train_x[
-        #     all_train_digits == task_order[task_ind * 2 + 1]][:p_digit_train]
-        # class1_test_x = all_test_x[
-        #     all_test_digits == task_order[task_ind * 2]][:p_digit_test]
-        # class2_test_x = all_test_x[
-        #     all_test_digits == task_order[task_ind * 2 + 1]][:p_digit_test]
-
-        # assert class1_train_x.shape[0] == p_digit_train, \
-        #       f'{class1_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
-        # assert class2_train_x.shape[0] == p_digit_train, \
-        #     f'{class2_train_x.shape[0]} != {p_digit_train} for task {task_ind}'
-        # assert class1_test_x.shape[0] == p_digit_test, \
-        #     f'{class1_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
-        # assert class2_test_x.shape[0] == p_digit_test, \
-        #     f'{class2_test_x.shape[0]} != {p_digit_test} for task {task_ind}'
-
-        # fused_train_x = utils.normalize_input(
-        #     torch.vstack((class1_train_x, class2_train_x)))
-        # fused_test_x = utils.normalize_input(
-        #     torch.vstack((class1_test_x, class2_test_x)))
-        # train_y = torch.vstack((torch.ones((p_digit_train, 1)),
-        #                          torch.ones((p_digit_train, 1)) * -1))
-        # test_y = torch.vstack((torch.ones((p_digit_test, 1)),
-        #                         torch.ones((p_digit_test, 1)) * -1))
-
         seq_of_train_x.append(train_x)
         seq_of_test_x.append(test_x)
         seq_of_train_y.append(train_y)
         seq_of_test_y.append(test_y)
 
 
-
     return _pack_data(seq_of_train_x, precision), _pack_data(seq_of_test_x, precision), \
            _pack_data(seq_of_train_y, precision), _pack_data(seq_of_test_y, precision)
 
 
-def prepare_split_dataset(train_p: int,
+def prepare_split_sequence(train_p: int,
                           test_p: int,
                           dataset_name: str,
                           data_path=None,
@@ -710,7 +691,7 @@ def prepare_split_dataset(train_p: int,
             path=data_path,
             whitening=whitening)
 
-    return _generate_split_dataset_from_loaded_data(
+    return _generate_split_sequence_from_loaded_data(
         all_train_x,
         all_test_x,
         all_train_digits,

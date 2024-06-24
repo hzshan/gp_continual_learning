@@ -54,7 +54,7 @@ args.nn_seed = args.seed
 
 if args.task_type == 'permuted':
     seq_of_train_x, seq_of_test_x, seq_of_train_y, seq_of_test_y = \
-        data.prepare_permuted_dataset(
+        data.prepare_permutation_sequence(
             args.n_tasks,
             args.P,
             args.P_test,
@@ -66,7 +66,7 @@ if args.task_type == 'permuted':
 
 elif args.task_type == 'split':
     seq_of_train_x, seq_of_test_x, seq_of_train_y, seq_of_test_y = \
-        data.prepare_split_dataset(
+        data.prepare_split_sequence(
             args.P,
             args.P_test,
             dataset_name=args.dataset,
