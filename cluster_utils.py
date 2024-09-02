@@ -17,6 +17,7 @@ def list_folders(path, keyword1, keyword2='', keyword3=''):
     return filtered_list
 
 
+
 def initialize():
     """
     Hacky way to initialize the path variables by detecting whether it's 
