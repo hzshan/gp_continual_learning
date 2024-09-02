@@ -19,7 +19,7 @@ parser.add('P_test', 200)  # size of each testing set
 parser.add('n_tasks', 5, help='number of tasks in the sequence')
 parser.add('T', 0.0, help='temperature')
 parser.add('sigma', 0.2, help='weight variance')
-parser.add('manipulation_ratio', 0,
+parser.add('manipulation_ratio', 0.0,
         help='if using permutation, 1.0=full permulation; if' +
         ' using split, 1.0=full split.')
 parser.add('resample', 1, help='boolean variable')

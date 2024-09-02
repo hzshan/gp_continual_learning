@@ -18,7 +18,7 @@ class GPRealDataArgsParser(cluster_utils.Args):
                 'this makes calculations substantially faster.')
         
         # task type configs
-        self.add('manipulation_ratio', 0,
+        self.add('manipulation_ratio', 0.0,
                 help='if using permutation, 1.0=full permulation; if' +
                 ' using split, 1.0=full split.')
         self.add('resample', 0, help='boolean variable')
@@ -78,7 +78,7 @@ class GradientDescentArgsParser(cluster_utils.Args):
         self.add('n_tasks', 2, help='number of tasks in the sequence')
         self.add('resample', 1, help='boolean variable')
         self.add('task_type', 'permuted', help='permuted/split')
-        self.add('manipulation_ratio', 0,
+        self.add('manipulation_ratio', 0.0,
                 help='if using permutation, 1.0=full permulation; if' +
                 ' using split, 1.0=full split.')
         self.add('depth', 1, help='num of hidden layers')
