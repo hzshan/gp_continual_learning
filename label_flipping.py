@@ -100,6 +100,10 @@ def make_label_flipped_sequence(
 
 def replace_intermediate_datasets_with_mixed_data(
           seq_of_train_x, seq_of_train_y):
+    """
+    For task sequences of more than two tasks, replace the intermediate datasets
+    with mixed data from the first and last datasets.
+    """
 
     num_tasks = seq_of_train_x.shape[0]
     p = seq_of_train_x.shape[1]
