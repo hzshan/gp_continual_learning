@@ -5,8 +5,13 @@ import tqdm, theory, warnings
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 """
-Utility functions for working with MNIST, CIFAR-10 etc.
-Also includes code for generating Gaussian mixture ("cluster") data.
+Code for generating various task sequences, including
+* permuted task sequences
+* split task sequences
+* student-teacher task sequences (Gaussian mixture data)
+
+it also includes some related utility functions, including functionalities 
+not studied in the paper, such as adding task embeddings and replay items.
 """
 
 def permute_with_intermediate_task(
@@ -67,19 +72,21 @@ def permute_with_intermediate_task(
     return seq_of_train_x, seq_of_test_x
 
 
-
 def _mix_array(arr1, arr2, similarity):
     """
-    Returns sqrt(sim) * arr1 + sqrt(1-sim) * arr2. If arr2 is None, add N(0,1) Gaussian noise
+    Returns sqrt(sim) * arr1 + sqrt(1-sim) * arr2.
+    If arr2 is None, add N(0,1) Gaussian noise
     """
     if arr2 is None:
         arr2 = torch.normal(torch.zeros_like(arr1), std=1)
     assert arr1.shape == arr2.shape
     return np.sqrt(similarity) * arr1 + np.sqrt(1 - similarity) * arr2
 
+
 def add_replay_items(seq_of_x, seq_of_y, p_replay):
     """
-    This turns seq_of_x, which is typically a torch tensor object, into a list object, to accomodate the fact that
+    This turns seq_of_x, which is typically a torch tensor object,
+    into a list object, to accomodate the fact that
     different datasets have different numbers of items
     """
     new_x = seq_of_x.clone()
@@ -101,14 +108,23 @@ def add_task_embedding(seq_of_train_x, seq_of_test_x, embedding_dim, strength=10
     assert num_tasks == len(seq_of_test_x)
     p_train = seq_of_train_x.shape[1]
     p_test = seq_of_test_x.shape[1]
-    
 
     if embedding_dim > 0:
-        strength_factor = np.sqrt(seq_of_train_x.shape[-1] / embedding_dim) * strength / 100
-        embeddings = torch.normal(torch.zeros((num_tasks, embedding_dim))) * strength_factor
-        new_train_x = [torch.hstack((seq_of_train_x[i], embeddings[i].repeat(p_train, 1))) for i in range(num_tasks)]
-        new_test_x = [torch.hstack((seq_of_test_x[i], embeddings[i].repeat(p_test, 1))) for i in range(num_tasks)]
-        return utils.normalize_input(torch.stack(new_train_x)), utils.normalize_input(torch.stack(new_test_x))
+        strength_factor = np.sqrt(
+            seq_of_train_x.shape[-1] / embedding_dim) * strength / 100
+        embeddings = torch.normal(
+            torch.zeros((num_tasks, embedding_dim))) * strength_factor
+        new_train_x = [
+            torch.hstack((seq_of_train_x[i], embeddings[i].repeat(p_train, 1)))\
+                  for i in range(num_tasks)]
+        new_test_x = [
+            torch.hstack((seq_of_test_x[i], embeddings[i].repeat(p_test, 1)))\
+                  for i in range(num_tasks)]
+
+        return (
+            utils.normalize_input(torch.stack(new_train_x)),
+            utils.normalize_input(torch.stack(new_test_x))
+            )
     else:
         return seq_of_train_x, seq_of_test_x
 
@@ -119,7 +135,7 @@ def get_clustered_input(num_train_per_cluster, num_test_per_cluster,
                         train_data_has_var=True,
                         accumulate_changes=False):
     """
-    Generated clustered data for the template model. 
+    Generated clustered data for the student-teacher task sequences. 
 
     Terminology: each "cluster" refers to a Gaussian centered on one template
     Args:
@@ -272,7 +288,8 @@ class ReluTeachers:
 
         # add a bias term to the output such that the mean output for input on the unit sphere is 0
         for i in range(num_teachers):
-            test_output = torch.relu(test_input @ self.Ws[i]) @ self.As[i] / np.sqrt(self.input_dim * self.hidden_dim)
+            test_output = torch.relu(test_input @ self.Ws[i]) @ self.As[i] /\
+                  np.sqrt(self.input_dim * self.hidden_dim)
             self.biases.append(torch.mean(test_output))
 
         if device is not None:
@@ -282,7 +299,8 @@ class ReluTeachers:
 
     def teacher(self, x, teacher_ind):
         assert teacher_ind < self.num_teachers, 'Teacher index exceeds the number of teachers generated.'
-        return torch.relu(x @ self.Ws[teacher_ind]) @ self.As[teacher_ind] / np.sqrt(self.input_dim * self.hidden_dim) -\
+        return torch.relu(x @ self.Ws[teacher_ind]) @ self.As[teacher_ind] /\
+              np.sqrt(self.input_dim * self.hidden_dim) -\
             self.biases[teacher_ind]
 
 
@@ -557,7 +575,21 @@ def prepare_permutation_sequence(num_tasks: int,
                              permutation=1,
                              whitening=False):
     """
-    This prepares a binary permuted task. Odd vs even digits
+    This prepares a sequence of binary classification tasks. Different tasks
+    use inputs that are permuted versions of the same images.
+
+    Args:
+    num_tasks: number of tasks. Can be as many as desired.
+    train_p: number of training samples per task.
+    test_p: number of test samples per task.
+    dataset_name: name of the dataset. Can be 'mnist', 'fashion', 'cifar', 'emnist'.
+    data_path: path to the dataset.
+    precision: precision of floating point numbers.
+    resample: whether to resample the data for each task. If true, each task
+    uses a different subset of the data.
+    permutation: strength of the permutation. 0 means no permutation, 1 means
+    full permutation.
+    whitening: whether to whiten the input data.
     """
 
     all_train_x, all_test_x, all_train_digits, all_test_digits = \
@@ -735,10 +767,25 @@ def prepare_split_sequence(train_p: int,
                           split_ratio=1,
                           whitening=False):
     """
+    Generates a sequence of binary classification tasks, where each task uses
+    two different classes from the source dataset. E.g., if the source dataset
+    is MNIST, the first task may use 0 vs 1, the second 2 vs 3, etc.
+
     The n_tasks parameter sets the maximum number of tasks to use. The other 
     constraint is the number of classes in the full dataset. If there are K 
     classes (e.g., K=100 for CIFAR-100), then at most one can make 50 split
     tasks.
+
+    Args:
+    train_p: number of training samples per task.
+    test_p: number of test samples per task.
+    dataset_name: name of the dataset. Can be 'mnist', 'fashion', 'cifar', 'emnist'.
+    data_path: path to the dataset.
+    precision: precision of floating point numbers.
+    n_tasks: number of tasks. See comment above.
+    split_ratio: fraction of examples that are shared between all tasks.
+    whitening: whether to whiten the input data.
+
     """
 
     # load the entire dataset first
@@ -801,7 +848,7 @@ def load_dataset(dataset_name: str,
 
     assert dataset_name in [
         'cifar', 'mnist', 'fashion', 'cifar100', 'emnist', 'cifar_gray',
-        'cifar100_gray'],\
+        'cifar100_gray', 'fashion_emnist_mix'],\
           'dataset name not understood'
 
     train_set = None
@@ -825,17 +872,41 @@ def load_dataset(dataset_name: str,
     elif dataset_name == 'emnist':
         train_set = torchvision.datasets.EMNIST(path, 'byclass', train=True, download=True, transform=trans)
         test_set = torchvision.datasets.EMNIST(path, 'byclass', train=False, download=True, transform=trans)
+    elif dataset_name == 'fashion_emnist_mix':
+        train_set1 = torchvision.datasets.FashionMNIST(path, train=True, download=True, transform=trans)
+        test_set1 = torchvision.datasets.FashionMNIST(path, train=False, download=True, transform=trans)
+        train_set2 = torchvision.datasets.EMNIST(path, 'byclass', train=True, download=True, transform=trans)
+        test_set2 = torchvision.datasets.EMNIST(path, 'byclass', train=False, download=True, transform=trans)
 
-    train_loader = DataLoader(train_set, batch_size=num_train, shuffle=False)
-    test_loader = DataLoader(test_set, batch_size=num_test, shuffle=False)
+        train_set2.targets += 10
+        test_set2.targets += 10
 
-    raw_train_data = next(iter(train_loader))
-    raw_test_data = next(iter(test_loader))
+        train_set = torch.utils.data.ConcatDataset([train_set1, train_set2])
+        test_set = torch.utils.data.ConcatDataset([test_set1, test_set2])
+
+    # train_loader = DataLoader(train_set, batch_size=num_train, shuffle=False)
+    # test_loader = DataLoader(test_set, batch_size=num_test, shuffle=False)
+
+    # raw_train_data = next(iter(train_loader))
+    # raw_test_data = next(iter(test_loader))
     
 
-    def _get_x_y(raw_data: tuple, mean_subtraction):
-        x, y = raw_data
-        x = x.reshape(x.shape[0], -1).float()
+    def _get_x_y(dataset, mean_subtraction):
+        if type(dataset) is not torch.utils.data.ConcatDataset:
+            x = dataset.data
+            y = dataset.targets
+            x = x.reshape(x.shape[0], -1).float()
+        
+        else:
+            x1 = dataset.datasets[0].data
+            x2 = dataset.datasets[1].data
+            y1 = dataset.datasets[0].targets
+            y2 = dataset.datasets[1].targets
+            x1 = x1.reshape(x1.shape[0], -1).float()
+            x2 = x2.reshape(x2.shape[0], -1).float()
+            x = torch.vstack((x1, x2))
+            y = torch.hstack((y1, y2))
+
 
         assert mean_subtraction in ['image', 'batch']
         if mean_subtraction == 'batch':
@@ -849,8 +920,8 @@ def load_dataset(dataset_name: str,
         y = y.float()
         return x, y
 
-    train_x, train_y = _get_x_y(raw_train_data, mean_subtraction)
-    test_x, test_y = _get_x_y(raw_test_data, mean_subtraction)
+    train_x, train_y = _get_x_y(train_set, mean_subtraction)
+    test_x, test_y = _get_x_y(test_set, mean_subtraction)
 
     # try to remove duplicate images by removing ones with the same norm
     _, unique_train_inds = np.unique(torch.norm(train_x, dim=1),
@@ -872,3 +943,140 @@ def load_dataset(dataset_name: str,
         test_x = test_x @ whitened_mat
 
     return train_x, test_x, train_y[unique_train_inds], test_y[unique_test_inds]
+
+
+def prepare_target_distractor_sequence(num_tasks: int,
+                             train_p: int,
+                             test_p: int,
+                             num_flipped_labels: int,
+                             target_frac: float,
+                             data_path=None,
+                             precision=32,
+                             whitening=False):
+    """
+    TODO add docstring
+
+    Args:
+    num_tasks: number of tasks. Can be as many as desired.
+    train_p: number of training samples per task.
+    test_p: number of test samples per task.
+    num_flipped_labels: number of labels to flip in each task.
+    target_frac: fraction of the target digits in each task.
+    data_path: path to the dataset.
+    precision: precision of floating point numbers.
+    whitening: whether to whiten the input data.
+    """
+
+    all_train_x, all_test_x, all_train_digits, all_test_digits = \
+        load_dataset(
+            dataset_name='fashion_emnist_mix',
+            num_train=200000,
+            num_test=200000,
+            path=data_path,
+            whitening=whitening)
+
+    return _generate_target_distractor_from_loaded_data(
+        all_train_x,
+        all_test_x,
+        all_train_digits,
+        all_test_digits,
+        num_flipped_labels=num_flipped_labels,
+        num_tasks=num_tasks,
+        train_p=train_p,
+        test_p=test_p,
+        target_frac=target_frac,
+        precision=precision)
+
+
+def _generate_target_distractor_from_loaded_data(
+        all_train_x, all_test_x, all_train_digits, all_test_digits,
+        num_flipped_labels, num_tasks, train_p, test_p, target_frac,
+        precision=64):
+
+    assert num_tasks <= 20
+
+    num_targets = int(target_frac * train_p)
+    num_distractors = train_p - num_targets
+
+    num_targets_te = int(target_frac * test_p)
+    num_distractors_te = test_p - num_targets_te
+
+
+    def _generate_target_x_y(all_x, all_digits, n_targets):
+
+        # the target digits should be greater than 19 (first 20 are distractors)
+        target_digits_inds = np.where(all_digits > 19)[0]
+        all_target_x = all_x[target_digits_inds]
+        all_target_digits = all_digits[target_digits_inds]
+
+        target_perm = np.random.permutation(len(all_target_x))
+        target_x = all_target_x[target_perm][:n_targets]
+        target_digits = all_target_digits[target_perm][:n_targets].reshape((n_targets, 1))
+
+        # digits in the first row are in one class; those in the second are in the other
+        task0_dichotomy = np.vstack((np.arange(20, 46), np.arange(46, 72)))
+
+        target_y = target_digits.clone()
+        utils.dichotomize_in_place(target_y,
+                                task0_dichotomy[0],
+                                task0_dichotomy[1])
+        return target_x, target_y, target_digits
+
+
+    def _generate_distractor_x_y(all_x, all_digits, distractor_digit_ind, n_distractors):
+        distractor_x = utils.shuffle_along_first_axis(
+            all_x[all_digits == distractor_digit_ind])[:n_distractors]
+        distractor_y = torch.zeros(n_distractors, 1)
+        return distractor_x, distractor_y
+
+
+    target_x, _, target_digits = _generate_target_x_y(
+        all_train_x, all_train_digits, num_targets)
+
+    target_x_te, _, target_digits_te = _generate_target_x_y(
+        all_test_x, all_test_digits, num_targets_te)
+
+    distractor_class_inds = np.random.permutation(20)
+
+    seq_of_train_x = []
+    seq_of_test_x = []
+    seq_of_train_y = []
+    seq_of_test_y = []
+
+    default_dichotomy = np.vstack((np.arange(20, 46), np.arange(46, 72)))
+
+    for task_ind in range(num_tasks):
+
+        distractor_x, distractor_y = _generate_distractor_x_y(
+            all_train_x, all_train_digits, distractor_class_inds[task_ind],
+        num_distractors)
+
+        distractor_x_te, distractor_y_te = _generate_distractor_x_y(
+            all_test_x, all_test_digits, distractor_class_inds[task_ind],
+        num_distractors_te)
+        
+        # flip some of the targets
+        targets_to_flip = np.random.choice(26, num_flipped_labels, replace=False)
+        task_dichotomy = default_dichotomy.copy()
+        task_dichotomy[0, targets_to_flip] = default_dichotomy[1, targets_to_flip]
+        task_dichotomy[1, targets_to_flip] = default_dichotomy[0, targets_to_flip]
+
+        task_target_y = target_digits.clone()
+        utils.dichotomize_in_place(task_target_y, task_dichotomy[0], task_dichotomy[1])
+        
+        task_target_y_te = target_digits_te.clone()
+        utils.dichotomize_in_place(task_target_y_te, task_dichotomy[0], task_dichotomy[1])
+        
+        train_x = utils.normalize_input(torch.cat([target_x, distractor_x], axis=0))
+        train_y = torch.cat([task_target_y, distractor_y], axis=0)
+
+        test_x = utils.normalize_input(torch.cat([target_x_te, distractor_x_te], axis=0))
+        test_y = torch.cat([task_target_y_te, distractor_y_te], axis=0)
+        
+        seq_of_train_x.append(train_x)
+        seq_of_test_x.append(test_x)
+        seq_of_train_y.append(train_y)
+        seq_of_test_y.append(test_y)
+    
+    return _pack_data(seq_of_train_x, precision), _pack_data(seq_of_test_x, precision), \
+        _pack_data(seq_of_train_y, precision), _pack_data(seq_of_test_y, precision)
