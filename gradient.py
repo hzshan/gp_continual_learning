@@ -20,6 +20,10 @@ Do gradient-based simulations (SGD, Langevin etc.) of continual learning.
 Saves: all the training/test acc/loss.
 For the NN predictions, only the output from the 0th head is saved,
 and the corresponding input is always the first test set!!
+
+Stopping criterion:
+once the loss hasn't decreased for CONVERGENCE_THRESHOLD steps, or loss goes
+ below TARGET_TRAIN_LOSS.
 """
 
 # detect whether we are on the cluster or not; use cuda if on cluster
