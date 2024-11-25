@@ -1,12 +1,12 @@
 """
 GP-limit continual learning theory for two-way classification problems.
-1. EVERY RANDOM SEED CORRESPONDS TO A NEW RANDOM DATA SAMPLE!!!
+Every random seed corresponds to a different subset of data.
 
 """
 
 # only save loss/accuracy of the first task across time
 # this is to reduce the size of the output file
-ONLY_FIRST_TASK = False
+ONLY_FIRST_TASK = True
 
 
 import numpy as np
@@ -61,6 +61,7 @@ else:
     raise ValueError(
         'task type not understood. Choose between "permuted" and "split"')
 
+# add task embedding (if N0context = 0, it does nothing)
 seq_of_train_x, seq_of_test_x = data.add_task_embedding(
     seq_of_train_x,
     seq_of_test_x,
@@ -76,6 +77,7 @@ training_predictions, test_predictions =\
         large_lambda=bool(args.use_large_lambda_limit), depth=args.depth,
         use_naive_gp=(bool(args.naive_gp)))
 
+
 (results['train loss'], results['test loss'],
  results['train acc'], results['test acc']) =\
     data.get_loss_acc(training_predictions,
@@ -83,23 +85,27 @@ training_predictions, test_predictions =\
                       seq_of_train_y,
                       seq_of_test_y, only_first_task=ONLY_FIRST_TASK)
 
+
 results['single task test loss'] = theory.get_single_task_test_losses(
     seq_of_train_x, seq_of_train_y, seq_of_test_x, seq_of_test_y,
     depth=args.depth
     )
 
 
-# results['train magnitude'] = np.linalg.norm(
-#     training_predictions.squeeze(), axis=-1)**2 / args.P
-
-
 if bool(args.save_outputs):
+    # enabling this significantly increases the output file size
+
     results['sampled fn on train'] = training_predictions[0, :]
     # save output on train set #1 across time
     results['sampled fn on test'] = test_predictions[0, :]
     # save output on test set #1 across time
 
-# # compute some OPs for long-term behavior
+
+# compute some OPs for long-term behavior
+# The notations are somewhat different from the paper. 
+# v1v2_cos = cos(V1, V2) = \gamma_{rule}
+# trp1p2 = tr(P1P2)/P = \gamma_{input}
+
 trp1p2, v1v2_cos, _ = theory.compute_forgetting_ops(
     x1=seq_of_train_x[0], x2=seq_of_train_x[1],
     y1=seq_of_train_y[0], y2=seq_of_train_y[1],
