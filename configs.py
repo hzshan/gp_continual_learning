@@ -94,3 +94,4 @@ class GradientDescentArgsParser(cluster_utils.Args):
 
         self.add('n_epochs', 1, help='number of times to go through the sequence of tasks')
         self.add('n_steps', 50000, help='number of learning steps')
+        self.add('whiten', 1, help='1/0. Whether to whiten data first.')

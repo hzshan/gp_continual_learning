@@ -1,4 +1,15 @@
-import cluster_utils, data, torch, grad_utils, sys, configs
+import cluster_utils, data, torch, grad_utils, sys, configs, pickle
+
+"""
+Do gradient-based simulations (SGD, Langevin etc.) of continual learning.
+Saves: all the training/test acc/loss.
+For the NN predictions, only the output from the 0th head is saved,
+and the corresponding input is always the first test set.
+
+Stopping criterion:
+once the loss hasn't decreased for CONVERGENCE_THRESHOLD steps, or loss goes
+ below TARGET_TRAIN_LOSS.
+"""
 
 UPDATE_FREQ = 5000  
 # print an update per UPDATE_FREQ steps
@@ -7,24 +18,21 @@ CONVERGENCE_THRESHOLD = 1000
 # stop training once the loss hasn't decreased for this many steps
 
 NORMALIZATION_SCHEME = 'none'
-# whether or not to use layer norm etc.
+# whether or not to use layer norm etc. Choose between none, layer and full.
 
 DIFF_DATA_SEED = False 
 # whether or not to use a different seed for the data; 
 # if False, the seed used to sample data is always 0
 
-TARGET_TRAIN_LOSS = 1e-3
+SAVE_DATA_USED = False
+# Important comment about random seed usage (Nov 2024): for reasons I don't
+# fully understand, using the same random seed only ensures consistency between
+# separate runs on the cluster, but not between runs on the cluster and those
+# run on my local computer. If one would like to do local analysis using the same
+# data as the cluster, one should save the data and load it in the local run.
 
-"""
-Do gradient-based simulations (SGD, Langevin etc.) of continual learning.
-Saves: all the training/test acc/loss.
-For the NN predictions, only the output from the 0th head is saved,
-and the corresponding input is always the first test set!!
+TARGET_TRAIN_LOSS = 1e-4
 
-Stopping criterion:
-once the loss hasn't decreased for CONVERGENCE_THRESHOLD steps, or loss goes
- below TARGET_TRAIN_LOSS.
-"""
 
 # detect whether we are on the cluster or not; use cuda if on cluster
 ON_CLUSTER, data_path, output_home_path = cluster_utils.initialize()
@@ -44,6 +52,7 @@ logger.log(str(args))
 logger.log(f'gradient descent update interval: {UPDATE_FREQ} steps')
 logger.log(f'gradient descent convergence: {CONVERGENCE_THRESHOLD} steps')
 logger.log(f'network normalization scheme: {NORMALIZATION_SCHEME}')
+logger.log('using device: {}'.format(device))
 results = {'args': args}
 
 # Use the same seed for sampling the dataset etc.
@@ -66,7 +75,8 @@ if args.task_type == 'permuted':
             resample=False,
             permutation=args.manipulation_ratio,
             data_path=data_path,
-            precision=32)
+            precision=32,
+            whitening=args.whiten)
 
 elif args.task_type == 'split':
     seq_of_train_x, seq_of_test_x, seq_of_train_y, seq_of_test_y = \
@@ -76,10 +86,16 @@ elif args.task_type == 'split':
             dataset_name=args.dataset,
             data_path=data_path,
             precision=32,
-            n_tasks=args.n_tasks)
+            n_tasks=args.n_tasks,
+            whitening=args.whiten)
 else:
     raise ValueError('task type not understood.'
                      'Choose between "permuted" and "split"')
+
+if SAVE_DATA_USED:
+    with open(f'{output_home_path}data_used_{run_name}.pkl', 'wb') as f:
+        pickle.dump(
+            (seq_of_train_x, seq_of_test_x, seq_of_train_y, seq_of_test_y), f)
 
 # Some formatting
 seq_of_train_x = seq_of_train_x.to(device)
