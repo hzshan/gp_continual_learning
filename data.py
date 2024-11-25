@@ -380,7 +380,7 @@ def prepare_cluster_dataset(num_tasks: int,
         _pack_data(all_y_test, precision)
 
 
-def get_loss_acc(tr_preds, te_preds, tr_y, te_y, only_first_task=False):
+def get_loss_acc(tr_preds, te_preds, tr_y, te_y, only_first_task=False, normalize=True):
     _n_tasks = len(tr_y)
     tr_loss = np.zeros((_n_tasks, _n_tasks))
     te_loss = np.zeros((_n_tasks, _n_tasks))
@@ -391,10 +391,12 @@ def get_loss_acc(tr_preds, te_preds, tr_y, te_y, only_first_task=False):
         if te_y[_task_ind] is not None:
             for _time_ind in range(_n_tasks):
                 tr_loss[_task_ind, _time_ind] = \
-                    utils.loss_from_predictions(tr_preds[_task_ind][_time_ind], tr_y[_task_ind])
+                    utils.loss_from_predictions(
+                        tr_preds[_task_ind][_time_ind], tr_y[_task_ind], normalize=normalize)
                 if te_preds is not None:
                     te_loss[_task_ind, _time_ind] = \
-                        utils.loss_from_predictions(te_preds[_task_ind][_time_ind], te_y[_task_ind])
+                        utils.loss_from_predictions(
+                            te_preds[_task_ind][_time_ind], te_y[_task_ind], normalize=normalize)
 
                 tr_acc[_task_ind, _time_ind] = \
                     torch.mean(
@@ -895,7 +897,7 @@ def load_dataset(dataset_name: str,
         if type(dataset) is not torch.utils.data.ConcatDataset:
             x = dataset.data
             y = dataset.targets
-            x = x.reshape(x.shape[0], -1).float()
+            x = torch.tensor(x.reshape(x.shape[0], -1)).float()
         
         else:
             x1 = dataset.datasets[0].data
@@ -917,7 +919,7 @@ def load_dataset(dataset_name: str,
             # subtract the mean pixel value across positions.
             # each image would have zero mean
             x -= torch.mean(x, dim=1).reshape(-1, 1)
-        y = y.float()
+        y = torch.tensor(y).float()
         return x, y
 
     train_x, train_y = _get_x_y(train_set, mean_subtraction)
@@ -991,7 +993,7 @@ def prepare_target_distractor_sequence(num_tasks: int,
 def _generate_target_distractor_from_loaded_data(
         all_train_x, all_test_x, all_train_digits, all_test_digits,
         num_flipped_labels, num_tasks, train_p, test_p, target_frac,
-        precision=64):
+        precision=64, pixel_perm=0.2):
 
     assert num_tasks <= 20
 
@@ -1072,9 +1074,11 @@ def _generate_target_distractor_from_loaded_data(
 
         test_x = utils.normalize_input(torch.cat([target_x_te, distractor_x_te], axis=0))
         test_y = torch.cat([task_target_y_te, distractor_y_te], axis=0)
+
+        perm_mat = utils.get_permutation_mat(train_x.shape[-1], strength=pixel_perm)
         
-        seq_of_train_x.append(train_x)
-        seq_of_test_x.append(test_x)
+        seq_of_train_x.append(train_x @ perm_mat)
+        seq_of_test_x.append(test_x @ perm_mat)
         seq_of_train_y.append(train_y)
         seq_of_test_y.append(test_y)
     
