@@ -39,6 +39,7 @@ class GPRealDataArgsParser(cluster_utils.Args):
         self.add('N0context', 0, help='embedding dimension')
         self.add('context_strength', 1.0,
                 help='magnifying factor for context embedding')
+        self.add('only_first_task', 0, help='1/0. Whether to only save loss on the first task')
 
 class StudentTeacherArgsParser(cluster_utils.Args):
 

@@ -4,10 +4,6 @@ Every random seed corresponds to a different subset of data.
 
 """
 
-# only save loss/accuracy of the first task across time
-# this is to reduce the size of the output file
-ONLY_FIRST_TASK = True
-
 
 import numpy as np
 import theory, cluster_utils, data, torch, sys, configs, utils
@@ -18,7 +14,6 @@ parser = configs.GPRealDataArgsParser()
 args = parser.parse_args()
 
 # log whether only saving first task performance
-args.only_first_task = ONLY_FIRST_TASK
 
 run_name = f'{args.BATCH_NAME}_{args.TRIAL_IND}'
 
@@ -83,7 +78,7 @@ training_predictions, test_predictions =\
     data.get_loss_acc(training_predictions,
                       test_predictions,
                       seq_of_train_y,
-                      seq_of_test_y, only_first_task=ONLY_FIRST_TASK)
+                      seq_of_test_y, only_first_task=args.only_first_task)
 
 
 results['single task test loss'] = theory.get_single_task_test_losses(
