@@ -381,6 +381,10 @@ def prepare_cluster_dataset(num_tasks: int,
 
 
 def get_loss_acc(tr_preds, te_preds, tr_y, te_y, only_first_task=False, normalize=True):
+    """
+    Computes MSE loss and classification accuracy for each task and time step.
+    All outputs are in 16 bit precision to reduce output file size.
+    """
     _n_tasks = len(tr_y)
     tr_loss = np.zeros((_n_tasks, _n_tasks))
     te_loss = np.zeros((_n_tasks, _n_tasks))
@@ -406,9 +410,9 @@ def get_loss_acc(tr_preds, te_preds, tr_y, te_y, only_first_task=False, normaliz
                         torch.mean((torch.sign(te_preds[_task_ind, _time_ind]) == te_y[_task_ind]).float())
     
     if only_first_task:
-        return tr_loss[0], te_loss[0], tr_acc[0], te_acc[0]
+        return tr_loss[0].astype(np.float16), te_loss[0].astype(np.float16), tr_acc[0].astype(np.float16), te_acc[0].astype(np.float16)
     else:
-        return tr_loss, te_loss, tr_acc, te_acc
+        return tr_loss.astype(np.float16), te_loss.astype(np.float16), tr_acc.astype(np.float16), te_acc.astype(np.float16)
 
 
 def digit_to_onehot(digit_target, num_classes=10):
@@ -507,66 +511,6 @@ def _generate_permutation_sequence_from_loaded_data(
            _pack_data(seq_of_train_y, precision), _pack_data(seq_of_test_y, precision)
 
 
-def prepare_dataset(num_tasks: int,
-                    train_p: int,
-                    test_p: int,
-                    dataset_name: str,
-                    task_type: str,
-                    data_path=None,
-                    precision=32,
-                    whitening=False,
-                    perm_resample=True,
-                    permutation=1):
-    ''' Simple wrapper to simply real data preparation code.
-    
-    Args:
-    num_tasks:    number of tasks. Can be as many as desired for permuted;
-                  for split, it's at most the number of classes // 2.
-    train_p:      number of training samples per task.
-    test_p:       number of test samples per task.
-    dataset_name: name of the dataset. Can be 'mnist', 'fashion', 'cifar',
-                  'cifar100', 'emnist', 'cifar_gray', 'cifar100_gray'. '_gray'
-                  means different color channels are averaged to make grayscale
-                  images.
-    task_type:    'split' or 'permuted'.
-
-    Terminology: a 'digit' refers to a class of inputs in the original multi-way
-    classification dataset (e.g., each digit in MNIST). 
-    
-    '''
-
-    all_train_x, all_test_x, all_train_digits, all_test_digits = \
-        load_dataset(
-            dataset_name=dataset_name,
-            num_train=200000,
-            num_test=200000,
-            path=data_path,
-            whitening=whitening)
-
-    assert task_type in ['split', 'permuted'], 'task type not understood'
-    if task_type == 'split':
-        return _generate_split_sequence_from_loaded_data(
-            all_train_x,
-            all_test_x,
-            all_train_digits,
-            all_test_digits,
-            num_tasks,
-            train_p,
-            test_p,
-            precision=precision)
-    else:
-        return _generate_permutation_sequence_from_loaded_data(
-            all_train_x,
-            all_test_x,
-            all_train_digits,
-            all_test_digits,
-            permutation=permutation,
-            num_tasks=num_tasks,
-            train_p=train_p,
-            test_p=test_p,
-            resample=perm_resample,
-            precision=precision)
-
 def prepare_permutation_sequence(num_tasks: int,
                              train_p: int,
                              test_p: int,
@@ -597,8 +541,6 @@ def prepare_permutation_sequence(num_tasks: int,
     all_train_x, all_test_x, all_train_digits, all_test_digits = \
         load_dataset(
             dataset_name=dataset_name,
-            num_train=200000,
-            num_test=200000,
             path=data_path,
             whitening=whitening)
 
@@ -651,8 +593,9 @@ def _generate_split_sequence_from_loaded_data(all_train_x,
     def _select_digits_for_each_task(all_x, all_digits,
                                      task_order, task_ind, p_digit):
         """
-        From all_x, select p_digit examples for the digit specified by task_order[task_ind * 2]
-        and another p_digit examples for each digit specified by task_order[task_ind * 2 + 1].
+        From all_x, select p_digit examples for the digit specified by 
+        task_order[task_ind * 2] and another p_digit examples for each digit
+        specified by task_order[task_ind * 2 + 1].
 
         Returns: input for each task (P x N0) and labels for each task (P x 1)
         
@@ -669,8 +612,8 @@ def _generate_split_sequence_from_loaded_data(all_train_x,
         class2_x = all_x[
             all_digits == task_order[task_ind * 2 + 1]][:p_digit]
         
-        assert class1_x.shape[0] == p_digit
-        assert class2_x.shape[0] == p_digit
+        assert class1_x.shape[0] == p_digit, f'Expected {p_digit} examples, got {class1_x.shape[0]}'
+        assert class2_x.shape[0] == p_digit, f'Expected {p_digit} examples, got {class2_x.shape[0]}'
         
         fused_x = utils.normalize_input(
             torch.vstack((class1_x, class2_x)))
@@ -794,10 +737,42 @@ def prepare_split_sequence(train_p: int,
     all_train_x, all_test_x, all_train_digits, all_test_digits = \
         load_dataset(
             dataset_name=dataset_name,
-            num_train=200000,
-            num_test=200000,
             path=data_path,
             whitening=whitening)
+    
+    if dataset_name in ['cifar100', 'cifar100_gray']:
+        # some processing specific for CIFAR100
+        # Since there are only 500 images per class in the default training set,
+        # minus a few that are duplicates, we move some data from the test set
+        # into the training set. we also merge classes so that we end up with 50
+        # classes in total. This is all to ensure that we can have split
+        # sequences where each task has two classes and 2000 examples in total.
+        sorted_test_x = [all_test_x[all_test_digits == i] for i in range(100)]
+
+
+        first_half_of_test_x = [x[:len(x)//2] for x in sorted_test_x]
+        second_half_of_test_x = [x[len(x)//2:] for x in sorted_test_x]
+
+        digits_for_first_half = [
+            i for i in range(100) for _ in range(len(first_half_of_test_x[i]))]
+        digits_for_second_half = [
+            i for i in range(100) for _ in range(len(second_half_of_test_x[i]))]
+
+        first_half_of_test_x = torch.vstack(first_half_of_test_x)
+        second_half_of_test_x = torch.vstack(second_half_of_test_x)
+        digits_for_first_half = torch.tensor(digits_for_first_half)
+        digits_for_second_half = torch.tensor(digits_for_second_half)
+
+        all_train_x = torch.vstack(
+            [all_train_x, first_half_of_test_x])
+        remixed_train_digits = torch.hstack(
+            [all_train_digits, digits_for_first_half])
+
+        all_test_x = second_half_of_test_x
+        remixed_test_digits = digits_for_second_half
+
+        all_train_digits = remixed_train_digits % 50
+        all_test_digits = remixed_test_digits % 50
 
     return _generate_split_sequence_from_loaded_data(
         all_train_x,
@@ -837,8 +812,6 @@ def whiten(input_arr, epsilon=0):
 
 
 def load_dataset(dataset_name: str,
-                 num_train: int,
-                 num_test: int,
                  path=None,
                  mean_subtraction='image',
                  whitening=False):
@@ -897,7 +870,18 @@ def load_dataset(dataset_name: str,
         if type(dataset) is not torch.utils.data.ConcatDataset:
             x = dataset.data
             y = dataset.targets
-            x = torch.tensor(x.reshape(x.shape[0], -1)).float()
+
+            if type(x) == np.ndarray:
+                x = torch.tensor(x).float()
+            else:
+                x = x.float()
+
+            if type(y) == np.ndarray or type(y) == list:
+                y = torch.tensor(y).float()
+            else:
+                y = y.float()
+
+            x = x.reshape(x.shape[0], -1)
         
         else:
             x1 = dataset.datasets[0].data
@@ -919,7 +903,9 @@ def load_dataset(dataset_name: str,
             # subtract the mean pixel value across positions.
             # each image would have zero mean
             x -= torch.mean(x, dim=1).reshape(-1, 1)
-        y = torch.tensor(y).float()
+
+
+
         return x, y
 
     train_x, train_y = _get_x_y(train_set, mean_subtraction)
@@ -972,8 +958,6 @@ def prepare_target_distractor_sequence(num_tasks: int,
     all_train_x, all_test_x, all_train_digits, all_test_digits = \
         load_dataset(
             dataset_name='fashion_emnist_mix',
-            num_train=200000,
-            num_test=200000,
             path=data_path,
             whitening=whitening)
 
