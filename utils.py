@@ -6,6 +6,22 @@ import scipy.optimize, scipy.stats
 import matplotlib.pyplot as plt
 
 
+def dichotomize_in_place(y, class1_digits, class2_digits):
+    """Simple function for dichotomizing the labels in place.
+    y is assumed to be an array of integer digit labels (e.g., 0-9).
+    Digits in class1_digits will be set to +1 and those in class2_digits will be set to -1.
+    """
+    # if len(y) > 0 and len(np.unique(y)) != len(class1_digits) + len(class2_digits):
+    #         raise ValueError(
+    #             f"There is likely elements in digits not in class1_digits nor class2_digits.")
+    for d in class1_digits:
+        y[y == d] = 1.5
+    for d in class2_digits:
+        y[y == d] = -1.5
+    y /= 1.5
+    return y
+
+
 def get_diagonal_along_last_two_dims(np_array):
     """
     Assuming input of shape [X, Y, task_ind, time_ind], return an array 
@@ -379,8 +395,13 @@ def get_kernel(x1, x2, w1, w2):
            relu(x1.shape[1]**-0.5 * x2 @ w2).T / w1.shape[1]
 
 
-def loss_from_predictions(predictions, targets):
-    return (torch.norm(predictions.flatten() - targets.flatten())**2 / torch.norm(targets.flatten())**2).cpu()
+def loss_from_predictions(predictions, targets, normalize=True):
+    raw_loss = torch.norm(predictions.flatten() - targets.flatten())**2
+    
+    if normalize:
+        return (raw_loss / torch.norm(targets.flatten())**2).cpu()
+    else:
+        return raw_loss.cpu()
 
 
 def get_loss(inputs, weights, readout, target, normalized=True):

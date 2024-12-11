@@ -445,7 +445,6 @@ def compute_forgetting_ops(x1, x2, y1, y2, depth, use_ntk_kernel=False):
         trp1p2/P = Tr(K1^{-1} K12 K2^{-1} K21) / P
         v1v2_cos = Y1.T K1^{-1} K12 K2^{-1} Y2 / sqrt(Y1.T K1^{-1} Y1) /
         sqrt(Y2.T K2^{-1} Y2))
-        v1v2_ref: Same as v1v2_cos, but use Y_uniform instead of Y1 and Y2.
     """
 
     # the kernel_fn takes x1, x2, depth
@@ -475,6 +474,40 @@ def compute_forgetting_ops(x1, x2, y1, y2, depth, use_ntk_kernel=False):
 
     return trp1p2, v1v2_cos, v1v2_cos_ref
 
+
+def compute_dec2024_ops(x1, x2, y1, y2, depth, use_ntk_kernel=False):
+    """
+    Compute forgetting OPs (Dec 2024 version). Use NNGP kernels by default.
+    They are defined as:
+    P_{12} = P_2 C_1 P_2 + P_1 C_2 P_1
+    \gamma_{rf} = V_2^T P_{12} V_2 / P
+    \gamma_{r} = V_2^T P_{12} V_1 / P
+
+    They can alternatively be expressed in terms of the kernels as:
+    \gamma_{rf} = ||K_{12} K_2^{-1} Y_2||^2 + ||K_{12}^T K_1^{-1} K_{12} K_2^{-1} Y_2||^2
+    \gamma{r} = Y_2^T K_2^{-1} K_{12}^T K_{12} K_2^{-1} K_{12}^T K_1^{-1} Y_1 + Y_2^T K_2^{-1} K_{12}^T K_1^{-1} K_{12} K_{12}^T K_1^{-1} Y_1
+    Returns:
+        gamma_rf = ||K12 K2^{-1} Y2||^2 + ||K12^T K1^{-1} K12 K2^{-1} Y2||^2
+        gamma_r = Y2^T K2^{-1} K12^T K12 K2^{-1} K12^T K1^{-1} Y1 + Y2^T K2^{-1} K12^T K1^{-1} K12 K12^T K1^{-1} Y1
+    """
+
+    # the kernel_fn takes x1, x2, depth
+    kernel_fn = arccos_kernel_deep if use_ntk_kernel is False else k_ntk
+    K1 = kernel_fn(x1, x1, depth)
+    K2 = kernel_fn(x2, x2, depth)
+    K12 = kernel_fn(x1, x2, depth)
+
+    K1_inv = torch.inverse(K1)
+    K2_inv = torch.inverse(K2)
+
+    assert K1.shape == K2.shape
+    P = K1.shape[0]
+
+    gamma_rf = torch.norm(K12 @ K2_inv @ y2)**2 + torch.norm(K12.T @ K1_inv @ K12 @ K2_inv @ y2)**2
+    gamma_r = y2.T @ K2_inv @ K12.T @ K12 @ K2_inv @ K12.T @ K1_inv @ y1 +\
+        y2.T @ K2_inv @ K12.T @ K1_inv @ K12 @ K12.T @ K1_inv @ y1
+
+    return gamma_rf / P, gamma_r / P
 
 def get_gp_overlap(x1, x2, depth, epsilon=0):
     assert x1.shape == x2.shape
