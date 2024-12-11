@@ -28,4 +28,5 @@ python /n/home11/haozheshan/ContinualLearning2022/$script_name  \
 --context_strength $context_strength \
 --whiten $whiten \
 --cluster 1 \
---save_outputs $save_outputs
+--save_outputs $save_outputs \
+--only_first_task $only_first_task
