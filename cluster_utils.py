@@ -87,7 +87,7 @@ class ClusterResultOrganizer:
             filepath = f'{self.local_path}/{self.batch_name}/'
             self.file_path = filepath
             file_list = os.listdir(filepath)
-            print(filepath)
+            # print(filepath)
             num_result_files = 0
             for file_name in file_list:
                 if file_name.endswith('.results'):
@@ -140,14 +140,14 @@ class ClusterResultOrganizer:
             print('"NSEEDS" found in the arguments.'
                   'Assuming that each file contains multiple random seeds.')
 
-        print('=================== Cluster organizer ===================')
+        # print('=================== Cluster organizer ===================')
         if len(self.all_data_obj) > 0:
             print(f'{len(self.all_data_obj)} data objects loaded from folder "{self.batch_name}".')
         else:
             print(f'!!!!! No data file was found !!!!!')
         if self.verbose:
             print(sort_by_key_message)
-        print('=================== Cluster organizer ===================')
+        # print('=================== Cluster organizer ===================')
 
     def organize_results(self, value_key, as_arrays=False):
         organized_results = {}
