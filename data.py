@@ -923,8 +923,8 @@ def load_dataset(dataset_name: str,
     if 'gray' in dataset_name:
         assert dataset_name in ['cifar_gray', 'cifar100_gray']
         # convert RGB to grayscale
-        train_x = train_x.reshape(-1, 3, 1024).mean(1)
-        test_x = test_x.reshape(-1, 3, 1024).mean(1)
+        train_x = train_x.reshape(-1, 1024, 3).mean(-1)
+        test_x = test_x.reshape(-1, 1024, 3).mean(-1)
 
     if whitening:
         train_x, whitened_mat = whiten(train_x)
