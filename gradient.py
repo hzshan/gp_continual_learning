@@ -20,7 +20,7 @@ CONVERGENCE_THRESHOLD = 1000
 NORMALIZATION_SCHEME = 'none'
 # whether or not to use layer norm etc. Choose between none, layer and full.
 
-DIFF_DATA_SEED = False 
+DIFF_DATA_SEED = True 
 # whether or not to use a different seed for the data; 
 # if False, the seed used to sample data is always 0
 

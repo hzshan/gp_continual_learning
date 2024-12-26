@@ -59,7 +59,7 @@ class ClusterResultOrganizer:
 
         self.packed_results = False
         if self.batch_name.endswith('.packed_results'):
-            print('Loading a packed result file.')
+            # print('Loading a packed result file.')
             self.packed_results = True
     
         self.load_all()
