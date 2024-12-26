@@ -5,7 +5,7 @@
 #SBATCH --gpu-freq=high
 
 module load python
-module load cuda/9.0-fasrc02
+module load cuda/9.1.85-fasrc01
 source activate continual
 cd /n/home11/haozheshan/ContinualLearning2022 || exit
 python /n/home11/haozheshan/ContinualLearning2022/$script_name  \
@@ -26,6 +26,7 @@ python /n/home11/haozheshan/ContinualLearning2022/$script_name  \
 --l2 $l2 \
 --dataset $dataset \
 --task_type $task_type \
---permutation $permutation \
+--manipulation_ratio $manipulation_ratio \
 --n_steps $n_steps \
+--whiten $whiten \
 --cluster 1
