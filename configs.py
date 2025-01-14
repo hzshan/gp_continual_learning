@@ -73,13 +73,13 @@ class StudentTeacherArgsParser(cluster_utils.Args):
 class GradientDescentArgsParser(cluster_utils.Args):
     def __init__(self):
         super().__init__()
-        self.add('P', 100, help='size of training set per task')
+        self.add('P', 500, help='size of training set per task')
         self.add('P_test', 500, help='size of test set per task')
         self.add('N', 100, help='hidden layer width')
         self.add('n_tasks', 2, help='number of tasks in the sequence')
         self.add('resample', 1, help='boolean variable')
         self.add('task_type', 'permuted', help='permuted/split')
-        self.add('manipulation_ratio', 0.0,
+        self.add('manipulation_ratio', 1.0,
                 help='if using permutation, 1.0=full permulation; if' +
                 ' using split, 1.0=full split.')
         self.add('depth', 1, help='num of hidden layers')
@@ -88,9 +88,9 @@ class GradientDescentArgsParser(cluster_utils.Args):
         self.add('eta', 1.0, help='learning rate')
         self.add('T', 0.0, help='temperature')
         self.add('sigma', 1.0, help='weight variance')
-        self.add('minibatch', 1, help='size of minibatch for SGD; -1 = full batch')
+        self.add('minibatch', -1, help='size of minibatch for SGD; -1 = full batch')
         self.add('seed', 0, help='random seed')
-        self.add('l2', 0.0, help='l2 regularizer')
+        self.add('l2', 0.001, help='l2 regularizer')
         self.add('decay', 0.0, help='weight decay speed')
 
         self.add('n_epochs', 1, help='number of times to go through the sequence of tasks')
