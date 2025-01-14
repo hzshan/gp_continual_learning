@@ -107,6 +107,8 @@ def train(network, train_x, train_y,
 
     rand_inds = torch.randperm(train_x.shape[0])
 
+    max_dist_from_anchor = torch.zeros(1)
+
     for step in range(n_steps):
 
         tr_loss = None
@@ -124,31 +126,48 @@ def train(network, train_x, train_y,
             with torch.no_grad():
                 tr_loss = torch.mean((network(train_x[:]).flatten() - train_y[:].flatten()) ** 2)
 
-        if tr_loss < curr_best_loss:
-            curr_best_loss = tr_loss.clone()
-
-        if tr_loss < target_train_loss:
+        with torch.no_grad():
+            dist_from_anchor = torch.zeros(1)
+            for p, anchor_p in zip(list(network.parameters()), network.anchor_parameters):
+                dist_from_anchor += torch.norm(p - anchor_p).cpu()**2
+            if dist_from_anchor > max_dist_from_anchor:
+                max_dist_from_anchor = dist_from_anchor.clone()
+            elif dist_from_anchor < max_dist_from_anchor:
+                convergence_threshold -= 1
+        
+        if convergence_threshold < 0 and not first_task:
+            str_output_fn(f'\n ***** training converged (by norm of weight changes). max norm {max_dist_from_anchor.item():.4f}')
+            break
+            
+        if first_task and tr_loss < target_train_loss:
             str_output_fn(f'\n ***** training MSE less than {target_train_loss}.')
             break
 
-        if init_conv_threshold > 0:
-            if tr_loss.data > curr_best_loss:
-                convergence_threshold -= 1
-                if convergence_threshold < 0:
-                    if tr_loss > target_train_loss:
-                        l2 = l2 * 0.8
-                        decay = decay * 0.8
-                        # str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}.'
-                        #               f' Reducing L2 to {l2:.3E}.')
+        # if tr_loss < curr_best_loss:
+        #     curr_best_loss = tr_loss.clone()
 
-                        convergence_threshold = init_conv_threshold
-                    # str_output_fn(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
-                    # break
+        # if tr_loss < target_train_loss:
+        #     str_output_fn(f'\n ***** training MSE less than {target_train_loss}.')
+        #     break
+
+        # if init_conv_threshold > 0:
+        #     if tr_loss.data > curr_best_loss:
+        #         convergence_threshold -= 1
+        #         if convergence_threshold < 0:
+        #             if tr_loss > target_train_loss:
+        #                 l2 = l2 * 0.8
+        #                 decay = decay * 0.8
+        #                 # str_output_fn(f'\n ***** training converged at loss {curr_best_loss:.4f}.'
+        #                 #               f' Reducing L2 to {l2:.3E}.')
+
+        #                 convergence_threshold = init_conv_threshold
+        #             # str_output_fn(f'\n ***** training converged. best training loss {curr_best_loss:.4f}')
+        #             # break
 
         if step % update_freq == 0:
             str_output_fn(f'{step} steps ||'
                           f' tr MSE:{torch.mean((network(train_x).flatten() - train_y.flatten()) ** 2):.4f}'
-                          f' current l2 {l2}')
+                          f' current l2 {l2}, current change norm {dist_from_anchor.item():.8f}')
 
     str_output_fn(f'\n Training finished for one task. Final training loss {float(tr_loss):.3f}.')
     fn_on_train = network(train_x_for_sampling)[:, 0]
