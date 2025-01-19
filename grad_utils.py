@@ -36,7 +36,7 @@ class MLP(torch.nn.Module):
                 width = self.N0
             else:
                 width = self.N
-            x = self.Ls[i](x) / math.sqrt(width) / self.sigma
+            x = self.Ls[i](x) / math.sqrt(width)
             if self.normalize == 'none':
                 pass
             elif self.normalize == 'layer':
@@ -51,7 +51,7 @@ class MLP(torch.nn.Module):
                     'need to be none/layer/full')
             x = torch.relu(x)
 
-        return self.readout(x) / math.sqrt(self.N) / self.sigma
+        return self.readout(x) / math.sqrt(self.N)
 
     def anchor(self, zero_anchor=False):
         if zero_anchor:
