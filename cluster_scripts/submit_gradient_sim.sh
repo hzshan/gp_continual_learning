@@ -12,7 +12,7 @@ n_tasks=15
 dataset='mnist'
 task_type='permuted'
 depth=1
-manipulation_ratio=0.05
+manipulation_ratio=1.0
 resample=0
 
 N=2000
@@ -23,7 +23,7 @@ minibatch=500
 decay=0.0
 n_epochs=1
 n_steps=500000
-l2=0.1
+l2=0.0001
 whiten=1
 
 
@@ -31,7 +31,7 @@ MEM_REQUEST=10000 # memory requested, in MB
 TIME_REQUEST=0-2:00
 PARTITION=seas_gpu
 
-batch_name=gradient_${n_tasks}x${P}_${dataset}_${task_type}_full_${depth}L_N${N}_MINI${minibatch}_eta${eta}_diff_data
+batch_name=gradient_${n_tasks}x${P}_${dataset}_${task_type}_full_${depth}L_N${N}
 # batch_name=${n_tasks}x${P}_${dataset}_${task_type}_full
 
 
